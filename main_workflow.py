@@ -1,306 +1,337 @@
-#!/usr/bin/env python3
 """
-GenAI Smart Contract Pro - Production Workflow
-Integrates: RAG (Indian Constitution) + Summarization Agent + IndianLegalBERT Verification
+Main Workflow for GenAI Smart Contract Pro
+Integrates RAG retriever, contract summarizer, and IndianLegalBERT verification
+Modular architecture with separate components
 """
 
-import json
-import re
-import vertexai
-from vertexai.generative_models import GenerativeModel
-from flask import Flask, request, jsonify, send_from_directory
+import os
+import logging
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+from typing import Dict, Any, Optional
+import traceback
+
+# Import modular components
+from rag_retriever import get_rag_explanation
+from contract_summarizer import ContractSummarizer
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-from rag_retriever import initialize_rag_services, get_rag_explanation, extract_constitutional_themes_from_contract
 
-# Configuration
-PROJECT_ID = "genai-project-472704"
-LOCATION = "europe-west4"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class ContractAnalysisSystem:
-    """Integrated system: RAG + Summarization + IndianLegalBERT verification."""
+# Initialize Flask app
+app = Flask(__name__)
+CORS(app)
+
+class ContractAnalysisWorkflow:
+    """
+    Main workflow orchestrating all three components:
+    1. Contract Summarizer (new modular component)
+    2. RAG Retriever (existing modular component) 
+    3. IndianLegalBERT Verification
+    """
     
     def __init__(self):
-        # Initialize Vertex AI
-        vertexai.init(project=PROJECT_ID, location=LOCATION)
-        self.summarization_model = GenerativeModel("gemini-1.5-flash-002")
+        """Initialize all components"""
+        self.summarizer = None
+        self.bert_model = None
+        self.bert_tokenizer = None
         
-        # Initialize RAG components
-        try:
-            self.embedding_model, self.generative_model, self.vector_search_endpoint = initialize_rag_services()
-            self.rag_available = True
-        except Exception as e:
-            print(f"RAG initialization failed: {e}")
-            self.rag_available = False
-        
-        # Initialize IndianLegalBERT
-        try:
-            self.legal_tokenizer = AutoTokenizer.from_pretrained("law-ai/InLegalBERT")
-            self.legal_model = AutoModelForSequenceClassification.from_pretrained("law-ai/InLegalBERT")
-            self.bert_available = True
-        except Exception as e:
-            print(f"IndianLegalBERT initialization failed: {e}")
-            self.bert_available = False
+        self._initialize_components()
     
-    def detect_contract_content(self, page_data):
-        """Detect contract content from page data."""
-        text_content = page_data.get('text', '')
-        url = page_data.get('url', '')
+    def _initialize_components(self):
+        """Initialize all analysis components"""
+        try:
+            # Initialize contract summarizer
+            logger.info("Initializing contract summarizer...")
+            self.summarizer = ContractSummarizer()
+            
+            # Initialize IndianLegalBERT
+            logger.info("Initializing IndianLegalBERT...")
+            model_name = "law-ai/InLegalBERT"
+            self.bert_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.bert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            
+            logger.info("All components initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Component initialization failed: {e}")
+            # Continue with partial functionality
+    
+    def analyze_contract(self, contract_text: str) -> Dict[str, Any]:
+        """
+        Complete contract analysis using all three components
         
-        if not text_content:
-            return {"detected": False, "confidence": 0.0, "contract_text": "", "method": "no_content"}
-        
-        # Contract detection patterns
-        contract_patterns = [
-            r'\b(?:agreement|contract|terms\s+(?:and|&)\s+conditions)\b',
-            r'\b(?:whereas|hereby|party|parties|governing\s+law)\b',
-            r'\b(?:payment\s+terms|delivery|warranty|termination)\b',
-            r'\b(?:employment|service|procurement|lease|license)\b'
-        ]
-        
-        matches = 0
-        for pattern in contract_patterns:
-            matches += len(re.findall(pattern, text_content, re.IGNORECASE))
-        
-        # URL-based detection
-        url_score = 0.3 if any(term in url.lower() for term in ['contract', 'agreement', 'terms', '.pdf']) else 0
-        
-        # Calculate confidence
-        text_length = len(text_content.split())
-        confidence = min((matches / max(text_length * 0.02, 1)) + url_score, 1.0)
-        
-        return {
-            "detected": confidence > 0.2,
-            "confidence": confidence,
-            "contract_text": text_content,
-            "method": "url_pattern" if url_score > 0 else "content_analysis"
+        Args:
+            contract_text: Full contract text
+            
+        Returns:
+            Comprehensive analysis results
+        """
+        results = {
+            "summary": None,
+            "constitutional_analysis": None,
+            "verification_score": None,
+            "key_terms": None,
+            "themes": None,
+            "component_status": {
+                "summarizer": "inactive",
+                "rag": "inactive", 
+                "bert": "inactive"
+            },
+            "errors": []
         }
-    
-    def summarize_contract(self, contract_text):
-        """Summarization agent for contract key terms extraction."""
-        prompt = f"""You are a legal contract summarization agent. Extract and summarize the key terms from this contract:
-
-Contract text:
-{contract_text[:3000]}
-
-Provide a structured summary with:
-1. Contract Type
-2. Parties Involved
-3. Key Terms (payment, delivery, warranty, termination, governing law)
-4. Important Clauses
-5. Risk Factors
-
-Format as JSON:
-{{
-  "contract_type": "type of contract",
-  "parties": ["party1", "party2"],
-  "key_terms": {{
-    "payment": "payment terms",
-    "delivery": "delivery terms",
-    "warranty": "warranty information",
-    "termination": "termination conditions",
-    "governing_law": "applicable law"
-  }},
-  "important_clauses": ["clause1", "clause2"],
-  "risk_factors": ["risk1", "risk2"]
-}}"""
-
+        
+        # Component 1: Contract Summarization
         try:
-            response = self.summarization_model.generate_content(
-                prompt,
-                generation_config={
-                    "max_output_tokens": 1000,
-                    "temperature": 0.1,
-                    "top_p": 0.8
-                }
-            )
+            if self.summarizer:
+                logger.info("Running contract summarization...")
+                results["summary"] = self.summarizer.generate_summary(contract_text)
+                results["key_terms"] = self.summarizer.extract_key_terms(contract_text)
+                results["themes"] = self.summarizer.get_contract_themes(contract_text)
+                results["component_status"]["summarizer"] = "active"
+                logger.info("Contract summarization completed")
+            else:
+                results["errors"].append("Contract summarizer not available")
+        except Exception as e:
+            logger.error(f"Summarization error: {e}")
+            results["errors"].append(f"Summarization failed: {str(e)}")
+            results["summary"] = "Summarization unavailable"
+        
+        # Component 2: RAG Constitutional Analysis
+        try:
+            logger.info("Running RAG constitutional analysis...")
+            themes = results.get("themes", ["Contract Enforcement"])
             
-            # Parse JSON response
-            try:
-                return json.loads(response.text.strip())
-            except json.JSONDecodeError:
-                return {
-                    "contract_type": "General Contract",
-                    "summary": response.text.strip(),
-                    "key_terms": {},
-                    "parsing_error": True
-                }
+            # Use first theme for RAG analysis
+            primary_theme = themes[0] if themes else "Contract Enforcement"
+            rag_result = get_rag_explanation(primary_theme)
+            
+            if rag_result and "error" not in rag_result.lower():
+                results["constitutional_analysis"] = rag_result
+                results["component_status"]["rag"] = "active"
+                logger.info("RAG analysis completed")
+            else:
+                results["constitutional_analysis"] = self._fallback_constitutional_analysis(contract_text)
+                results["errors"].append("RAG service unavailable, using fallback")
                 
         except Exception as e:
-            return {"error": f"Summarization failed: {str(e)}"}
-    
-    def get_constitutional_analysis(self, contract_text):
-        """RAG-based constitutional analysis using Indian Constitution matching."""
-        if not self.rag_available:
-            return {"error": "Constitutional analysis unavailable", "articles": [], "analysis": ""}
+            logger.error(f"RAG analysis error: {e}")
+            results["errors"].append(f"RAG analysis failed: {str(e)}")
+            results["constitutional_analysis"] = self._fallback_constitutional_analysis(contract_text)
         
+        # Component 3: IndianLegalBERT Verification
         try:
-            # Extract constitutional themes from contract
-            themes = extract_constitutional_themes_from_contract(contract_text)
-            
-            constitutional_results = []
-            all_articles = []
-            
-            # Get RAG explanation for each theme
-            for theme in themes:
-                rag_result = get_rag_explanation(
-                    theme, 
-                    self.embedding_model, 
-                    self.generative_model, 
-                    self.vector_search_endpoint
-                )
-                
-                if rag_result.get("explanation"):
-                    constitutional_results.append({
-                        "theme": theme,
-                        "explanation": rag_result["explanation"],
-                        "source_articles": rag_result.get("source_articles", [])
-                    })
-                    all_articles.extend(rag_result.get("source_articles", []))
-            
-            return {
-                "themes": themes,
-                "analysis": constitutional_results,
-                "articles": list(set(all_articles)),  # Remove duplicates
-                "method": "rag_constitutional_matching"
-            }
-            
+            if self.bert_model and self.bert_tokenizer:
+                logger.info("Running IndianLegalBERT verification...")
+                verification_score = self._verify_with_bert(contract_text)
+                results["verification_score"] = verification_score
+                results["component_status"]["bert"] = "active"
+                logger.info("BERT verification completed")
+            else:
+                results["errors"].append("IndianLegalBERT not available")
         except Exception as e:
-            return {"error": f"Constitutional analysis failed: {str(e)}", "articles": [], "analysis": ""}
-    
-    def verify_with_indianlegalbert(self, contract_text, summary):
-        """IndianLegalBERT verification of contract analysis."""
-        if not self.bert_available:
-            return {"verification": "IndianLegalBERT unavailable", "confidence": 0.0}
+            logger.error(f"BERT verification error: {e}")
+            results["errors"].append(f"BERT verification failed: {str(e)}")
+            results["verification_score"] = "Verification unavailable"
         
-        try:
-            # Prepare text for BERT analysis
-            verification_text = f"Contract: {contract_text[:500]} Summary: {str(summary)[:500]}"
+        return results
+    
+    def _verify_with_bert(self, contract_text: str) -> str:
+        """
+        Verify contract using IndianLegalBERT
+        
+        Args:
+            contract_text: Contract text to verify
             
-            # Tokenize and predict
-            inputs = self.legal_tokenizer(
-                verification_text, 
-                return_tensors="pt", 
-                truncation=True, 
-                max_length=512,
+        Returns:
+            Verification confidence score
+        """
+        try:
+            # Tokenize input
+            inputs = self.bert_tokenizer(
+                contract_text[:512],  # Limit to BERT max length
+                return_tensors="pt",
+                truncation=True,
                 padding=True
             )
             
+            # Get model prediction
             with torch.no_grad():
-                outputs = self.legal_model(**inputs)
+                outputs = self.bert_model(**inputs)
                 predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
                 confidence = torch.max(predictions).item()
             
-            return {
-                "verification": "Analysis verified by IndianLegalBERT",
-                "confidence": confidence,
-                "bert_score": confidence
-            }
+            # Convert to percentage
+            confidence_percentage = round(confidence * 100, 1)
+            
+            return f"{confidence_percentage}% confidence"
             
         except Exception as e:
-            return {"verification": f"BERT verification failed: {str(e)}", "confidence": 0.0}
+            logger.error(f"BERT verification error: {e}")
+            return "Verification failed"
     
-    def analyze_contract_complete(self, contract_text):
-        """Complete contract analysis: Summarization + Constitutional + Verification."""
-        # Step 1: Summarization Agent
-        summary = self.summarize_contract(contract_text)
+    def _fallback_constitutional_analysis(self, contract_text: str) -> str:
+        """
+        Fallback constitutional analysis when RAG is unavailable
         
-        # Step 2: RAG Constitutional Analysis
-        constitutional = self.get_constitutional_analysis(contract_text)
+        Args:
+            contract_text: Contract text to analyze
+            
+        Returns:
+            Basic constitutional analysis
+        """
+        # Simple keyword-based analysis
+        constitutional_aspects = []
         
-        # Step 3: IndianLegalBERT Verification
-        verification = self.verify_with_indianlegalbert(contract_text, summary)
+        text_lower = contract_text.lower()
         
-        return {
-            "summary": summary,
-            "constitutional_analysis": constitutional,
-            "verification": verification,
-            "analysis_complete": True
-        }
+        if any(word in text_lower for word in ["payment", "money", "rupees", "amount"]):
+            constitutional_aspects.append("Economic rights under Article 19(1)(g)")
+        
+        if any(word in text_lower for word in ["employment", "work", "labor", "service"]):
+            constitutional_aspects.append("Right against exploitation under Article 23-24")
+        
+        if any(word in text_lower for word in ["property", "land", "ownership"]):
+            constitutional_aspects.append("Property rights under Article 300A")
+        
+        if any(word in text_lower for word in ["discrimination", "equality", "equal"]):
+            constitutional_aspects.append("Right to equality under Article 14")
+        
+        if not constitutional_aspects:
+            constitutional_aspects.append("General contract enforcement under Article 19(1)(g)")
+        
+        return "Constitutional aspects: " + "; ".join(constitutional_aspects)
 
-# Flask Application
-app = Flask(__name__)
-CORS(app)
-analyzer = ContractAnalysisSystem()
-
-@app.route('/')
-def index():
-    return send_from_directory('.', 'browser.html')
+# Initialize workflow
+workflow = ContractAnalysisWorkflow()
 
 @app.route('/analyze', methods=['POST'])
-def analyze():
-    """Original manual analysis endpoint."""
+def analyze_contract():
+    """
+    Main analysis endpoint
+    Processes contract text through all three components
+    """
     try:
         data = request.get_json()
-        contract_text = data.get('contract_text', '').strip()
         
-        if not contract_text:
-            return jsonify({'status': 'error', 'error': 'No contract text provided'}), 400
+        if not data or 'text' not in data:
+            return jsonify({
+                "error": "No contract text provided",
+                "summary": "Error: No input text",
+                "constitutional_analysis": "Error: No input text",
+                "verification_score": "Error: No input text"
+            }), 400
         
-        # Complete analysis pipeline
-        result = analyzer.analyze_contract_complete(contract_text)
+        contract_text = data['text'].strip()
         
-        return jsonify({
-            'status': 'success',
-            'analysis': result,
-            'auto_detected': False
-        })
+        if len(contract_text) < 50:
+            return jsonify({
+                "error": "Contract text too short",
+                "summary": "Error: Text too short for analysis",
+                "constitutional_analysis": "Error: Text too short for analysis", 
+                "verification_score": "Error: Text too short for analysis"
+            }), 400
+        
+        # Run complete analysis
+        results = workflow.analyze_contract(contract_text)
+        
+        # Format response for frontend compatibility
+        response = {
+            "summary": results.get("summary", "Summary unavailable"),
+            "constitutional_analysis": results.get("constitutional_analysis", "Analysis unavailable"),
+            "verification_score": results.get("verification_score", "Verification unavailable"),
+            "component_status": results.get("component_status", {}),
+            "key_terms": results.get("key_terms", {}),
+            "themes": results.get("themes", []),
+            "errors": results.get("errors", [])
+        }
+        
+        logger.info("Analysis completed successfully")
+        return jsonify(response)
         
     except Exception as e:
-        return jsonify({'status': 'error', 'error': f'Analysis failed: {str(e)}'}), 500
+        logger.error(f"Analysis endpoint error: {e}")
+        logger.error(traceback.format_exc())
+        
+        return jsonify({
+            "error": f"Analysis failed: {str(e)}",
+            "summary": "Analysis failed due to server error",
+            "constitutional_analysis": "Analysis failed due to server error",
+            "verification_score": "Analysis failed due to server error"
+        }), 500
 
 @app.route('/auto-analyze', methods=['POST'])
-def auto_analyze():
-    """Auto-detection and analysis endpoint."""
+def auto_analyze_contract():
+    """
+    Auto-analysis endpoint for detected contract content
+    Same functionality as /analyze but optimized for auto-detection
+    """
     try:
         data = request.get_json()
         
-        # Detect contract content
-        detection_result = analyzer.detect_contract_content(data)
+        if not data or 'text' not in data:
+            return jsonify({"error": "No contract text provided"}), 400
         
-        if not detection_result.get("detected", False):
-            return jsonify({
-                "status": "no_contract",
-                "message": "No contract content detected",
-                "confidence": detection_result.get("confidence", 0.0)
-            })
+        contract_text = data['text'].strip()
+        confidence = data.get('confidence', 0)
         
-        # Complete analysis pipeline
-        contract_text = detection_result["contract_text"]
-        result = analyzer.analyze_contract_complete(contract_text)
+        # Add confidence info to analysis
+        results = workflow.analyze_contract(contract_text)
+        results['detection_confidence'] = confidence
+        results['auto_detected'] = True
         
-        return jsonify({
-            "status": "success",
-            "detection": detection_result,
-            "analysis": result,
-            "auto_detected": True,
-            "confidence": detection_result.get("confidence", 0.0)
-        })
+        # Format response
+        response = {
+            "summary": results.get("summary", "Summary unavailable"),
+            "constitutional_analysis": results.get("constitutional_analysis", "Analysis unavailable"),
+            "verification_score": results.get("verification_score", "Verification unavailable"),
+            "component_status": results.get("component_status", {}),
+            "detection_confidence": confidence,
+            "auto_detected": True
+        }
+        
+        logger.info(f"Auto-analysis completed with {confidence}% confidence")
+        return jsonify(response)
         
     except Exception as e:
-        return jsonify({'status': 'error', 'error': f'Auto-analysis failed: {str(e)}'}), 500
+        logger.error(f"Auto-analysis error: {e}")
+        return jsonify({"error": f"Auto-analysis failed: {str(e)}"}), 500
 
-@app.route('/health')
-def health():
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    component_status = {
+        "summarizer": "active" if workflow.summarizer else "inactive",
+        "bert": "active" if workflow.bert_model else "inactive",
+        "rag": "unknown"  # RAG status checked dynamically
+    }
+    
     return jsonify({
-        'status': 'healthy',
-        'components': {
-            'summarization': True,
-            'rag_constitutional': analyzer.rag_available,
-            'indianlegalbert': analyzer.bert_available
-        }
+        "status": "healthy",
+        "components": component_status,
+        "message": "GenAI Smart Contract Pro backend is running"
     })
 
-if __name__ == "__main__":
-    print("🤖 GenAI Smart Contract Pro - Production System")
-    print("=" * 50)
-    print("📋 Components:")
-    print(f"   ✅ Summarization Agent: Active")
-    print(f"   {'✅' if analyzer.rag_available else '❌'} RAG Constitutional Matching: {'Active' if analyzer.rag_available else 'Failed'}")
-    print(f"   {'✅' if analyzer.bert_available else '❌'} IndianLegalBERT Verification: {'Active' if analyzer.bert_available else 'Failed'}")
-    print("")
-    print("🌐 Server: http://localhost:5000")
-    print("🔌 Endpoints: /analyze, /auto-analyze")
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint"""
+    return jsonify({
+        "service": "GenAI Smart Contract Pro",
+        "version": "1.0.0",
+        "components": ["Contract Summarizer", "RAG Retriever", "IndianLegalBERT"],
+        "endpoints": ["/analyze", "/auto-analyze", "/health"]
+    })
+
+if __name__ == '__main__':
+    logger.info("Starting GenAI Smart Contract Pro backend...")
+    logger.info("Components: Contract Summarizer + RAG Retriever + IndianLegalBERT")
     
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    # Run Flask app
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=True
+    )
