@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-}"
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-genai-project-472704}"
 REGION="${REGION:-us-central1}"
 SERVICE_NAME="genai-contract-pro"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
