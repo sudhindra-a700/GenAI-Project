@@ -640,14 +640,17 @@ async def test():
 
 # Main execution
 if __name__ == "__main__":
+    import uvicorn
+    
     port = int(os.environ.get("PORT", 8080))
-    logger.info(f"Starting GenAI Contract Pro Complete FastAPI on port {port}")
-    logger.info(f"Project ID: {workflow.project_id}")
-    logger.info(f"ML Imports Available: {ML_IMPORTS_AVAILABLE}")
+    logger.info(f"Starting GenAI Smart Contract Pro on port {port}")
     
     uvicorn.run(
-        app, 
-        host="0.0.0.0", 
+        "main_workflow:app",
+        host="0.0.0.0",
         port=port,
-        log_level="info"
+        log_level="info",
+        workers=4
     )
+
+
