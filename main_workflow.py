@@ -393,12 +393,18 @@ def internal_error(error):
     """Handle 500 errors"""
     logger.error(f"Internal server error: {error}")
     return jsonify({"error": "Internal server error"}), 500
-
-if __name__ == '__main__':
-    # Production configuration
-    port = int(os.environ.get('PORT', 8080))
-    debug = os.environ.get('ENVIRONMENT', 'production') != 'production'
     
+# Health check endpoint for Cloud Run
+@app.route('/health')
+def health_check():
+    return {"status": "healthy", "service": "GenAI Contract Pro"}, 200
+
+# Main execution for Cloud Run
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
+
     logger.info(f"Starting GenAI Smart Contract Pro backend on port {port}")
     logger.info("Components: Contract Summarizer + RAG Retriever + IndianLegalBERT")
     
@@ -408,3 +414,4 @@ if __name__ == '__main__':
         port=port,
         debug=debug
     )
+
