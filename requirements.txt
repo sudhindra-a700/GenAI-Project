@@ -13,8 +13,7 @@ google-cloud-storage==2.10.0
 google-auth==2.23.4
 
 # Transformers & ML
-transformers==4.35.2
-torch==2.1.1
+transformers==4.30.0
 tokenizers==0.15.0
 
 # IndianLegalBERT specific
@@ -29,7 +28,7 @@ beautifulsoup4==4.12.2
 # Utilities
 requests==2.31.0
 python-dotenv==1.0.0
-pydantic==2.5.0
+pydantic>=1.10.0,<3.0.0
 
 # Logging and monitoring
 structlog==23.2.0
