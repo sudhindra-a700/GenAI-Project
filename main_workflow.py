@@ -409,6 +409,15 @@ def health_check():
         "service": "GenAI Contract Pro"
     }, 200
 
+@app.route('/')
+def root():
+    return jsonify({"message": "GenAI Contract Pro API", "status": "running"})
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy", "service": "GenAI Contract Pro"})
+
+
 # Main execution for Cloud Run
 if __name__ == "__main__":
     import os
@@ -424,6 +433,7 @@ if __name__ == "__main__":
         port=port,
         debug=debug
     )
+
 
 
 
