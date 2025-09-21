@@ -1,0 +1,8 @@
+flask
+google-cloud-aiplatform
+google-cloud-storage
+vertexai
+datasets
+rouge-score
+google-api-core<2.0.0
+protobuf<4.0
