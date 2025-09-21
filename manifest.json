@@ -2,21 +2,22 @@
   "manifest_version": 3,
   "name": "GenAI Smart Contract Pro",
   "version": "1.0.0",
-  "description": "AI-powered contract analysis with RAG constitutional matching, summarization, and IndianLegalBERT verification",
+  "description": "AI-powered contract analysis with constitutional compliance checking using RAG, summarization, and IndianLegalBERT verification",
   
   "permissions": [
     "activeTab",
-    "tabs",
-    "storage"
+    "storage",
+    "scripting"
   ],
   
   "host_permissions": [
     "http://localhost:5000/*",
-    "https://*/*"
+    "https://*/*",
+    "http://*/*"
   ],
   
   "action": {
-    "default_popup": "browser.html",
+    "default_popup": "enhanced_browser_mvp_lucide.html",
     "default_title": "GenAI Smart Contract Pro",
     "default_icon": {
       "16": "icon16.png",
@@ -29,8 +30,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "js": ["enhanced_content_mvp_lucide.js"],
+      "run_at": "document_end"
     }
   ],
   
@@ -43,5 +44,9 @@
     "32": "icon32.png",
     "48": "icon48.png",
     "128": "icon128.png"
+  },
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://unpkg.com; object-src 'self'"
   }
 }
