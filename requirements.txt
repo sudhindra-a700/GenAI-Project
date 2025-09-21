@@ -1,13 +1,8 @@
-# MODERN STABLE VERSIONS
-flask==3.1.2
+flask==3.0.0
 flask-cors==4.0.1
 gunicorn==21.2.0
-
-# Google Cloud & Vertex AI  
 google-cloud-aiplatform==1.38.1
-vertexai<=1.71.1
+vertexai==1.43.0
 google-auth==2.23.4
-
-# Utilities only (skip PyTorch for now )
 requests==2.31.0
 python-dotenv==1.0.0
