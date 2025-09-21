@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Pico Minimalist Extension",
+  "version": "1.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png" 
+  },
+  "permissions": [
+    "activeTab"
+  ],
+  "description": "A clean, modern extension UI inspired by leading productivity apps."
+}

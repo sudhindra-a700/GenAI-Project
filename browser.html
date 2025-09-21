@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Summarizer Pro</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Dark Theme Variables */
+        :root {
+            --accent-primary: #00b87c;
+            --accent-primary-hover: #00d88c;
+            --accent-secondary: #7c3aed;
+            --accent-focus: rgba(0, 184, 124, 0.25);
+            
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #2d2d2d;
+            
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            
+            --border-color: #333;
+            --card-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            
+            --success: #00b87c;
+            --warning: #ff9800;
+            --error: #f44336;
+            --info: #2196f3;
+        }
+
+        /* Apply dark theme */
+        [data-theme="light"],
+        :root:not([data-theme="dark"]) {
+          --background-color: var(--bg-primary);
+          --color: var(--text-primary);
+          --h1-color: var(--text-primary);
+          --h2-color: var(--text-primary);
+          --h3-color: var(--text-primary);
+          --h4-color: var(--text-primary);
+          --h5-color: var(--text-primary);
+          --h6-color: var(--text-primary);
+          --muted-color: var(--text-muted);
+          --muted-border-color: var(--border-color);
+          --form-element-background-color: var(--bg-secondary);
+          --form-element-color: var(--text-primary);
+          --form-element-border-color: var(--border-color);
+          --form-element-active-border-color: var(--accent-primary);
+          --form-element-focus-color: var(--accent-focus);
+          --card-background-color: var(--bg-secondary);
+          --card-border-color: var(--border-color);
+          --modal-overlay-background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        /* Core Layout */
+        body {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+            box-sizing: border-box;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Header Styles */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            animation: slideDown 0.4s ease-out;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            color: var(--accent-primary);
+            animation: pulse 2s infinite;
+        }
+
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+           
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Tab Navigation */
+        .tabs-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            animation: slideDown 0.5s ease-out 0.1s both;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tab-button.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent-primary);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 1.5rem;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            animation: slideInRight 0.5s ease-out 0.2s both;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            margin-top: 0;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Input Card */
+        .input-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            animation: slideInLeft 0.5s ease-out 0.2s both;
+            overflow: hidden;
+        }
+
+        .input-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-tertiary);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-button {
+            padding: 0.5rem;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-button:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .action-button i {
+            width: 16px;
+            height: 16px;
+        }
+
+        .text-input-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #text-input {
+            width: 100%;
+            height: 100%;
+            padding: 1.25rem;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            resize: none;
+            font-size: 1rem;
+            line-height: 1.6;
+            box-sizing: border-box;
+        }
+
+        #text-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent-focus);
+        }
+
+        .char-count {
+            position: absolute;
+            bottom: 0.75rem;
+            right: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        #summarizeButton {
+            background: var(--accent-primary);
+            border: none;
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        #summarizeButton:hover {
+            background: var(--accent-primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 184, 124, 0.3);
+        }
+
+        #summarizeButton:active {
+            transform: translateY(0);
+        }
+
+        #clearButton {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #clearButton:hover {
+            background: var(--bg-primary);
+            transform: translateY(-2px);
+        }
+
+        /* Feedback and Output */
+        .feedback-container {
+            margin-top: 1.5rem;
+            min-height: 60px;
+        }
+
+        #feedback-message {
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .summary-output-container {
+            margin-top: 1.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .summary-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        #summary-output {
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        /* History Panel */
+        .history-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .history-item {
+            padding: 1rem;
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .history-item:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(5px);
+        }
+
+        .history-item-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .history-item-preview {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            
+            -webkit-box-orient: vertical;
+        }
+
+        .history-item-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Settings Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--modal-overlay-background-color);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .close-modal {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+
+        .close-modal:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .settings-option {
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-option label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            background: var(--bg-tertiary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes slideInLeft {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 184, 124, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 184, 124, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 184, 124, 0); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar-section {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <i data-lucide="scan-text" class="logo-icon"></i>
+                <h1 class="app-title">AI Summarizer Pro</h1>
+            </div>
+            <div class="header-actions">
+                <button class="action-button" id="themeToggle" title="Toggle theme">
+                    <i data-lucide="moon"></i>
+                </button>
+                <button class="action-button" id="settingsButton" title="Settings">
+                    <i data-lucide="settings"></i>
+                </button>
+                <button class="action-button" id="helpButton" title="Help">
+                    <i data-lucide="help-circle"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="tabs-container">
+            <button class="tab-button active" data-tab="summarize">Summarize</button>
+            <button class="tab-button" data-tab="history">History</button>
+            <button class="tab-button" data-tab="saved">Saved</button>
+        </div>
+
+        <div class="main-content">
+            <section class="input-section">
+                <div class="input-card">
+                    <div class="input-header">
+                        <span>Text to summarize</span>
+                        <div class="input-actions">
+                            <button class="action-button" id="pasteButton" title="Paste from clipboard">
+                                <i data-lucide="clipboard-paste"></i>
+                            </button>
+                            <button class="action-button" id="capturePageButton" title="Capture current page">
+                                <i data-lucide="capture"></i>
+                            </button>
+                            <button class="action-button" id="clearInputButton" title="Clear input">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-input-container">
+                        <textarea id="text-input" placeholder="Paste text here or use the buttons above to capture content..."></textarea>
+                        <div class="char-count">0 characters</div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="summarizeButton">
+                        <i data-lucide="zap"></i>
+                        Summarize Text
+                    </button>
+                    <button id="clearButton">
+                        <i data-lucide="trash-2"></i>
+                        Clear All
+                    </button>
+                </div>
+
+                <div class="feedback-container">
+                    <p id="feedback-message" aria-live="polite"></p>
+                </div>
+
+                <div class="summary-output-container" id="summary-output-container">
+                    <div class="summary-header">
+                        <h3>Summary</h3>
+                        <div class="summary-actions">
+                            <button class="action-button" id="copySummaryButton" title="Copy summary">
+                                <i data-lucide="copy"></i>
+                            </button>
+                            <button class="action-button" id="saveSummaryButton" title="Save summary">
+                                <i data-lucide="bookmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="summary-output"></div>
+                </div>
+            </section>
+
+            <aside class="sidebar-section">
+                <h3 class="section-title">
+                    <i data-lucide="history"></i>
+                    Recent Summaries
+                </h3>
+                <div class="history-list" id="history-list">
+                    <!-- History items will be added here dynamically -->
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-modal" id="closeSettings">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="settings-option">
+                <label for="summaryLength">Summary Length</label>
+                <div class="slider-container">
+                    <input type="range" id="summaryLength" min="1" max="5" value="3">
+                    <span class="slider-value" id="lengthValue">Medium</span>
+                </div>
+            </div>
+            
+            <div class="settings-option">
+                <label for="autoCapture">Auto-capture page content</label>
+                <input type="checkbox" id="autoCapture" role="switch" checked>
+            </div>
+            
+            <div class="settings-option">
+                <label for="animationToggle">Enable animations</label>
+                <input type="checkbox" id="animationToggle" role="switch" checked>
+            </div>
+            
+            <button id="saveSettings" class="primary">Save Settings</button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // DOM Elements
+        const summarizeButton = document.getElementById('summarizeButton');
+        const settingsButton = document.getElementById('settingsButton');
+        const themeToggle = document.getElementById('themeToggle');
+        const textInput = document.getElementById('text-input');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const summaryOutput = document.getElementById('summary-output');
+        const summaryContainer = document.getElementById('summary-output-container');
+        const clearButton = document.getElementById('clearButton');
+        const clearInputButton = document.getElementById('clearInputButton');
+        const pasteButton = document.getElementById('pasteButton');
+        const capturePageButton = document.getElementById('capturePageButton');
+        const copySummaryButton = document.getElementById('copySummaryButton');
+        const saveSummaryButton = document.getElementById('saveSummaryButton');
+        const charCount = document.querySelector('.char-count');
+        const historyList = document.getElementById('history-list');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettings = document.getElementById('closeSettings');
+        const saveSettings = document.getElementById('saveSettings');
+        const summaryLength = document.getElementById('summaryLength');
+        const lengthValue = document.getElementById('lengthValue');
+        const tabButtons = document.querySelectorAll('.tab-button');
+
+        // State
+        let currentTheme = 'dark';
+        let historyItems = JSON.parse(localStorage.getItem('summarizerHistory')) || [];
+        let settings = JSON.parse(localStorage.getItem('summarizerSettings')) || {
+            summaryLength: 3,
+            autoCapture: true,
+            animations: true
+        };
+
+        // Initialize
+        function init() {
+            updateCharCount();
+            renderHistory();
+            loadSettings();
+            
+            // Try to capture page content if setting is enabled
+            if (settings.autoCapture) {
+                capturePageContent();
+            }
+        }
+
+        // Character count update
+        function updateCharCount() {
+            const count = textInput.value.length;
+            charCount.textContent = `${count} characters`;
+            
+            if (count > 5000) {
+                charCount.style.color = 'var(--success)';
+            } else if (count > 1000) {
+                charCount.style.color = 'var(--warning)';
+            } else if (count > 0) {
+                charCount.style.color = 'var(--error)';
+            } else {
+                charCount.style.color = 'var(--text-muted)';
+            }
+        }
+
+        // Show feedback message
+        function showFeedback(message, type = 'info') {
+            feedbackMessage.textContent = message;
+            feedbackMessage.style.backgroundColor = `var(--${type})`;
+            feedbackMessage.style.color = 'white';
+            
+            setTimeout(() => {
+                feedbackMessage.textContent = '';
+                feedbackMessage.style.backgroundColor = '';
+                feedbackMessage.style.color = '';
+            }, 3000);
+        }
+
+        // Capture page content
+        function capturePageContent() {
+            showFeedback('Capturing page content...', 'info');
+            
+            // Simulate capturing content from the current page
+            setTimeout(() => {
+                const sampleContent = "Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to the natural intelligence displayed by animals including humans. AI applications include advanced web search engines (e.g., Google), recommendation systems (used by YouTube, Amazon and Netflix), understanding human speech (such as Siri and Alexa), self-driving cars (e.g., Tesla), automated decision-making and competing at the highest level in strategic game systems (such as chess and Go).";
+                
+                textInput.value = sampleContent;
+                updateCharCount();
+                showFeedback('Page content captured successfully!', 'success');
+            }, 1000);
+        }
+
+        // Generate summary
+        function generateSummary() {
+            const textToSummarize = textInput.value.trim();
+            
+            if (textToSummarize.length < 50) {
+                showFeedback('Please provide at least 50 characters for a meaningful summary.', 'error');
+                summaryContainer.style.display = 'none';
+                return;
+            }
+            
+            summarizeButton.disabled = true;
+            summaryContainer.style.display = 'block';
+            summaryOutput.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; padding: 2rem;"><i data-lucide="loader" class="loading-spinner" style="width: 24px; height: 24px; margin-right: 10px; animation: spin 1s linear infinite;"></i> Analyzing text...</div>';
+            lucide.createIcons();
+            
+            showFeedback(`Processing ${textToSummarize.length} characters...`, 'info');
+            
+            // Simulate AI processing with a delay based on text length
+            const processingTime = Math.min(5000, Math.max(1500, textToSummarize.length / 10));
+            
+            setTimeout(() => {
+                const sentences = textToSummarize.match(/[^.!?]+[.!?]/g) || [textToSummarize];
+                let summaryLengthValue = Math.max(1, Math.min(5, Math.floor(sentences.length * (settings.summaryLength / 5))));
+                
+                const simulatedSummary = sentences.slice(0, summaryLengthValue).join(' ').trim() + 
+                    (sentences.length > summaryLengthValue ? '...' : '');
+                
+                summaryOutput.textContent = simulatedSummary;
+                summarizeButton.disabled = false;
+                showFeedback('Summary ready!', 'success');
+                
+                // Add to history
+                addToHistory(textToSummarize, simulatedSummary);
+            }, processingTime);
+        }
+
+        // Add to history
+        function addToHistory(original, summary) {
+            const historyItem = {
+                id: Date.now(),
+                original: original.substring(0, 200) + (original.length > 200 ? '...' : ''),
+                summary: summary,
+                date: new Date().toLocaleString()
+            };
+            
+            historyItems.unshift(historyItem);
+            if (historyItems.length > 10) historyItems.pop();
+            
+            localStorage.setItem('summarizerHistory', JSON.stringify(historyItems));
+            renderHistory();
+        }
+
+        // Render history
+        function renderHistory() {
+            historyList.innerHTML = '';
+            
+            if (historyItems.length === 0) {
+                historyList.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">No history yet</p>';
+                return;
+            }
+            
+            historyItems.forEach(item => {
+                const historyElement = document.createElement('div');
+                historyElement.className = 'history-item';
+                historyElement.innerHTML = `
+                    <div class="history-item-title">
+                        <span>Summary #${item.id.toString().slice(-4)}</span>
+                        <span class="history-item-date">${item.date}</span>
+                    </div>
+                    <div class="history-item-preview">${item.summary}</div>
+                `;
+                
+                historyElement.addEventListener('click', () => {
+                    textInput.value = item.original;
+                    summaryOutput.textContent = item.summary;
+                    summaryContainer.style.display = 'block';
+                    updateCharCount();
+                    showFeedback('History item loaded', 'info');
+                });
+                
+                historyList.appendChild(historyElement);
+            });
+        }
+
+        // Load settings
+        function loadSettings() {
+            summaryLength.value = settings.summaryLength;
+            updateLengthValue();
+            
+            document.getElementById('autoCapture').checked = settings.autoCapture;
+            document.getElementById('animationToggle').checked = settings.animations;
+        }
+
+        // Update length value text
+        function updateLengthValue() {
+            const values = ['Very Short', 'Short', 'Medium', 'Long', 'Very Long'];
+            lengthValue.textContent = values[summaryLength.value - 1];
+        }
+
+        // Event Listeners
+        textInput.addEventListener('input', updateCharCount);
+        
+        summarizeButton.addEventListener('click', generateSummary);
+        
+        clearButton.addEventListener('click', () => {
+            textInput.value = '';
+            summaryOutput.textContent = '';
+            summaryContainer.style.display = 'none';
+            updateCharCount();
+            showFeedback('Cleared all content', 'info');
+        });
+        
+        clearInputButton.addEventListener('click', () => {
+            textInput.value = '';
+            updateCharCount();
+            showFeedback('Input cleared', 'info');
+        });
+        
+        pasteButton.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                textInput.value = text;
+                updateCharCount();
+                showFeedback('Pasted from clipboard', 'success');
+            } catch (err) {
+                showFeedback('Failed to access clipboard', 'error');
+            }
+        });
+        
+        capturePageButton.addEventListener('click', capturePageContent);
+        
+        copySummaryButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(summaryOutput.textContent)
+                .then(() => showFeedback('Summary copied to clipboard', 'success'))
+                .catch(() => showFeedback('Failed to copy summary', 'error'));
+        });
+        
+        saveSummaryButton.addEventListener('click', () => {
+            showFeedback('Summary saved to favorites', 'success');
+        });
+        
+        themeToggle.addEventListener('click', () => {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            themeToggle.innerHTML = currentTheme === 'dark' ? 
+                '<i data-lucide="moon"></i>' : 
+                '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+            localStorage.setItem('summarizerTheme', currentTheme);
+        });
+        
+        settingsButton.addEventListener('click', () => {
+            settingsModal.style.display = 'flex';
+        });
+        
+        closeSettings.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+        
+        saveSettings.addEventListener('click', () => {
+            settings.summaryLength = parseInt(summaryLength.value);
+            settings.autoCapture = document.getElementById('autoCapture').checked;
+            settings.animations = document.getElementById('animationToggle').checked;
+            
+            localStorage.setItem('summarizerSettings', JSON.stringify(settings));
+            settingsModal.style.display = 'none';
+            showFeedback('Settings saved', 'success');
+        });
+        
+        summaryLength.addEventListener('input', updateLengthValue);
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // In a real app, you would handle tab switching here
+                showFeedback(`Switched to ${button.textContent} tab`, 'info');
+            });
+        });
+
+        // Initialize the application
+        init();
+    </script>
+</body>
+</html>
