@@ -11,13 +11,13 @@ from flask_cors import CORS
 from typing import Dict, Any, Optional
 import traceback
 import sys
-
+import vertexai
 # Import modular components
 try:
     from rag_retriever import get_rag_explanation
     from contract_summarizer import ContractSummarizer
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    import torch
+    from vertexai.language_models import TextGenerationModel
+
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
@@ -424,6 +424,7 @@ if __name__ == "__main__":
         port=port,
         debug=debug
     )
+
 
 
 
