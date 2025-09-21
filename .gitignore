@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.pyc
+.env
+*.local
+
+# IDE files
+.idea/
+.vscode/
