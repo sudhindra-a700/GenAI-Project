@@ -394,10 +394,13 @@ def internal_error(error):
     logger.error(f"Internal server error: {error}")
     return jsonify({"error": "Internal server error"}), 500
     
-# Health check endpoint for Cloud Run
-@app.route('/health')
+@app.route('/health', methods=['GET'] )
 def health_check():
     return {"status": "healthy", "service": "GenAI Contract Pro"}, 200
+
+@app.route('/', methods=['GET']) 
+def root():
+    return {"message": "GenAI Smart Contract Pro API", "status": "running"}, 200
 
 # Main execution for Cloud Run
 if __name__ == "__main__":
@@ -414,4 +417,5 @@ if __name__ == "__main__":
         port=port,
         debug=debug
     )
+
 
