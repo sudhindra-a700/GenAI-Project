@@ -9,7 +9,7 @@ steps:
       - '-c'
       - |
         echo "Installing dependencies..."
-        pip install -r requirements_production.txt
+        pip install -r requirements.txt
         
         echo "Running backend tests..."
         python -c "
