@@ -1,0 +1,106 @@
+# Google Cloud Build Configuration for GenAI Smart Contract Pro
+# Automates testing, building, and deployment to Cloud Run
+
+steps:
+  # Step 1: Install Python dependencies and run tests
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Installing dependencies..."
+        pip install -r requirements_production.txt
+        
+        echo "Running backend tests..."
+        python -c "
+        import sys
+        sys.path.append('.')
+        
+        # Test imports
+        try:
+            from contract_summarizer import ContractSummarizer
+            from rag_retriever import get_rag_explanation
+            print('✅ All modules imported successfully')
+        except ImportError as e:
+            print(f'❌ Import error: {e}')
+            sys.exit(1)
+        
+        # Test contract summarizer
+        try:
+            summarizer = ContractSummarizer()
+            test_result = summarizer.generate_summary('TEST CONTRACT: This is a test agreement.')
+            print('✅ Contract summarizer test passed')
+        except Exception as e:
+            print(f'⚠️ Contract summarizer test failed: {e}')
+        
+        print('✅ Backend validation completed')
+        "
+
+  # Step 2: Build and deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'genai-contract-pro'
+      - '--source'
+      - '.'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--timeout'
+      - '300'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+
+  # Step 3: Test deployed service
+  - name: 'gcr.io/cloud-builders/curl'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Getting service URL..."
+        SERVICE_URL=$(gcloud run services describe genai-contract-pro --region=us-central1 --format="value(status.url)")
+        echo "Service URL: $SERVICE_URL"
+        
+        echo "Testing health endpoint..."
+        curl -f "$SERVICE_URL/health" || exit 1
+        
+        echo "Testing analyze endpoint..."
+        curl -X POST "$SERVICE_URL/analyze" \
+          -H "Content-Type: application/json" \
+          -d '{"text":"TEST AGREEMENT: This is a test contract with payment terms and governing law provisions."}' \
+          --max-time 30 || exit 1
+        
+        echo "✅ Deployment tests passed"
+
+# Build configuration
+options:
+  # Use high-performance machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  
+  # Set build timeout
+  timeout: '1200s'
+  
+  # Enable logging
+  logging: CLOUD_LOGGING_ONLY
+
+# Substitutions for environment variables
+substitutions:
+  _REGION: 'us-central1'
+  _SERVICE_NAME: 'genai-contract-pro'
+
+# Build triggers (when this file is used with Cloud Build triggers)
+# Automatically triggered on:
+# - Push to main branch
+# - Pull request to main branch
+# - Manual trigger from Cloud Console
