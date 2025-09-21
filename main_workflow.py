@@ -27,7 +27,7 @@ except ImportError as e:
     print(f"ML Import warning: {e}")
     ML_IMPORTS_AVAILABLE = False
 
-os.environ['TOKENIZERS_PARALLELISM'] = 'false
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -657,4 +657,5 @@ if __name__ == "__main__":
         log_level="info",
         workers=1
     )
+
 
