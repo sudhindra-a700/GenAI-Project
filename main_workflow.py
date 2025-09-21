@@ -639,11 +639,22 @@ async def test():
         "features": "All components loaded"
     }
 
-# Main execution
+# Add this at the very end of your main_workflow.py file
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Get port from Cloud Run environment
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("main_workflow:app", host="0.0.0.0", port=port)
-
-
+    
+    logger.info(f"Starting GenAI Smart Contract Pro on port {port}")
+    
+    # Start the FastAPI server
+    uvicorn.run(
+        "main_workflow:app",
+        host="0.0.0.0",  # CRITICAL for Cloud Run
+        port=port,
+        log_level="info",
+        workers=1
+    )
 
