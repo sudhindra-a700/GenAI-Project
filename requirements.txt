@@ -6,6 +6,8 @@ vertexai==1.43.0
 google-auth==2.23.4
 requests==2.31.0
 python-dotenv==1.0.0
-transformers==4.30.0
-torch==2.1.1+cpu --index-url https://download.pytorch.org/whl/cpu
-tokenizers==0.13.3
+torch==2.1.1
+torchvision==0.16.1
+transformers==4.35.2
+tokenizers==0.15.0
+
