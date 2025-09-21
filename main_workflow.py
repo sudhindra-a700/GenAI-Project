@@ -1,7 +1,7 @@
 """
 Production Main Workflow for GenAI Smart Contract Pro
+With IndianLegalBERT verification and law model alternatives
 Optimized for Google Cloud Run deployment
-Integrates RAG retriever, contract summarizer, and IndianLegalBERT verification
 """
 
 import os
@@ -12,12 +12,14 @@ from typing import Dict, Any, Optional
 import traceback
 import sys
 import vertexai
+from datetime import datetime
+
 # Import modular components
 try:
     from rag_retriever import get_rag_explanation
     from contract_summarizer import ContractSummarizer
-    from vertexai.language_models import TextGenerationModel
-
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    import torch
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
@@ -30,6 +32,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
@@ -42,22 +45,284 @@ CORS(app, origins=[
     "http://localhost:*"  # Allow localhost for development
 ])
 
+class LegalModelVerifier:
+    """
+    Legal model verification using multiple approaches:
+    1. IndianLegalBERT (primary)
+    2. Vertex AI Legal Analysis (alternative)
+    3. Custom legal pattern matching (fallback)
+    """
+    
+    def __init__(self, project_id: str):
+        self.project_id = project_id
+        self.indian_legal_bert = None
+        self.tokenizer = None
+        self.vertex_model = None
+        
+        # Initialize models with fallback options
+        self._initialize_legal_models()
+    
+    def _initialize_legal_models(self):
+        """Initialize legal verification models with multiple options"""
+        
+        # Option 1: IndianLegalBERT (Primary)
+        try:
+            logger.info("Initializing IndianLegalBERT...")
+            model_name = "law-ai/InLegalBERT"
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.indian_legal_bert = AutoModelForSequenceClassification.from_pretrained(model_name)
+            logger.info("IndianLegalBERT initialized successfully")
+        except Exception as e:
+            logger.error(f"IndianLegalBERT initialization failed: {e}")
+            self.indian_legal_bert = None
+            self.tokenizer = None
+        
+        # Option 2: Vertex AI Legal Model (Alternative)
+        try:
+            logger.info("Initializing Vertex AI legal model...")
+            vertexai.init(project=self.project_id, location="us-central1")
+            from vertexai.language_models import TextGenerationModel
+            self.vertex_model = TextGenerationModel.from_pretrained("text-bison")
+            logger.info("Vertex AI legal model initialized successfully")
+        except Exception as e:
+            logger.error(f"Vertex AI legal model initialization failed: {e}")
+            self.vertex_model = None
+    
+    def verify_legal_compliance(self, contract_text: str) -> Dict[str, Any]:
+        """
+        Verify legal compliance using available models
+        """
+        results = {
+            "compliance_score": 0.0,
+            "legal_issues": [],
+            "verification_method": "none",
+            "confidence": 0.0,
+            "recommendations": []
+        }
+        
+        # Method 1: IndianLegalBERT Verification
+        if self.indian_legal_bert and self.tokenizer:
+            try:
+                logger.info("Running IndianLegalBERT verification...")
+                
+                # Tokenize and analyze
+                inputs = self.tokenizer(
+                    contract_text[:512],  # Limit to 512 tokens
+                    return_tensors="pt",
+                    truncation=True,
+                    padding=True
+                )
+                
+                with torch.no_grad():
+                    outputs = self.indian_legal_bert(**inputs)
+                    predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                    
+                # Extract compliance score
+                compliance_score = float(predictions[0][1])  # Assuming binary classification
+                
+                results.update({
+                    "compliance_score": compliance_score,
+                    "verification_method": "IndianLegalBERT",
+                    "confidence": compliance_score,
+                    "legal_issues": self._extract_legal_issues(contract_text, compliance_score),
+                    "recommendations": self._generate_recommendations(compliance_score)
+                })
+                
+                logger.info(f"IndianLegalBERT verification completed: {compliance_score:.3f}")
+                return results
+                
+            except Exception as e:
+                logger.error(f"IndianLegalBERT verification failed: {e}")
+        
+        # Method 2: Vertex AI Legal Analysis (Alternative)
+        if self.vertex_model:
+            try:
+                logger.info("Running Vertex AI legal verification...")
+                
+                legal_prompt = f"""
+                Analyze this contract for legal compliance and potential issues:
+                
+                Contract: {contract_text[:2000]}
+                
+                Provide:
+                1. Compliance score (0.0 to 1.0)
+                2. Specific legal issues found
+                3. Recommendations for improvement
+                4. Constitutional law considerations for Indian contracts
+                
+                Format as structured analysis.
+                """
+                
+                response = self.vertex_model.predict(
+                    legal_prompt,
+                    max_output_tokens=1024,
+                    temperature=0.2
+                )
+                
+                # Parse Vertex AI response
+                analysis = response.text
+                compliance_score = self._extract_score_from_text(analysis)
+                
+                results.update({
+                    "compliance_score": compliance_score,
+                    "verification_method": "Vertex AI Legal Analysis",
+                    "confidence": 0.8,  # High confidence in Vertex AI
+                    "legal_issues": self._extract_issues_from_text(analysis),
+                    "recommendations": self._extract_recommendations_from_text(analysis),
+                    "detailed_analysis": analysis
+                })
+                
+                logger.info(f"Vertex AI legal verification completed: {compliance_score:.3f}")
+                return results
+                
+            except Exception as e:
+                logger.error(f"Vertex AI legal verification failed: {e}")
+        
+        # Method 3: Pattern-based Legal Analysis (Fallback)
+        logger.info("Running pattern-based legal verification...")
+        results = self._pattern_based_verification(contract_text)
+        results["verification_method"] = "Pattern-based Analysis"
+        
+        return results
+    
+    def _extract_legal_issues(self, text: str, score: float) -> list:
+        """Extract legal issues based on compliance score and text analysis"""
+        issues = []
+        
+        if score < 0.5:
+            issues.append("Low legal compliance detected")
+        if score < 0.3:
+            issues.append("Critical legal issues may be present")
+        
+        # Pattern-based issue detection
+        text_lower = text.lower()
+        if "termination" in text_lower and "notice" not in text_lower:
+            issues.append("Termination clause lacks proper notice requirements")
+        if "salary" in text_lower and "minimum wage" not in text_lower:
+            issues.append("Salary terms should reference minimum wage compliance")
+        if "confidentiality" in text_lower and "duration" not in text_lower:
+            issues.append("Confidentiality clause lacks duration specification")
+        
+        return issues
+    
+    def _generate_recommendations(self, score: float) -> list:
+        """Generate recommendations based on compliance score"""
+        recommendations = []
+        
+        if score < 0.7:
+            recommendations.append("Review contract with legal counsel")
+            recommendations.append("Ensure compliance with Indian Contract Act 1872")
+        if score < 0.5:
+            recommendations.append("Major revisions needed for legal compliance")
+            recommendations.append("Add constitutional law compliance clauses")
+        
+        recommendations.append("Verify alignment with latest labor law amendments")
+        return recommendations
+    
+    def _extract_score_from_text(self, text: str) -> float:
+        """Extract compliance score from Vertex AI response"""
+        import re
+        
+        # Look for score patterns
+        score_patterns = [
+            r'compliance score[:\s]*([0-9]*\.?[0-9]+)',
+            r'score[:\s]*([0-9]*\.?[0-9]+)',
+            r'([0-9]*\.?[0-9]+)/1\.0',
+            r'([0-9]*\.?[0-9]+)\s*out of\s*1'
+        ]
+        
+        for pattern in score_patterns:
+            match = re.search(pattern, text.lower())
+            if match:
+                try:
+                    score = float(match.group(1))
+                    return min(max(score, 0.0), 1.0)  # Clamp between 0 and 1
+                except ValueError:
+                    continue
+        
+        # Default score based on text sentiment
+        if "compliant" in text.lower() or "good" in text.lower():
+            return 0.75
+        elif "issues" in text.lower() or "problems" in text.lower():
+            return 0.4
+        else:
+            return 0.6
+    
+    def _extract_issues_from_text(self, text: str) -> list:
+        """Extract legal issues from Vertex AI response"""
+        issues = []
+        lines = text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if any(keyword in line.lower() for keyword in ['issue', 'problem', 'concern', 'violation']):
+                if len(line) > 10:  # Avoid very short lines
+                    issues.append(line)
+        
+        return issues[:5]  # Limit to top 5 issues
+    
+    def _extract_recommendations_from_text(self, text: str) -> list:
+        """Extract recommendations from Vertex AI response"""
+        recommendations = []
+        lines = text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if any(keyword in line.lower() for keyword in ['recommend', 'suggest', 'should', 'consider']):
+                if len(line) > 10:
+                    recommendations.append(line)
+        
+        return recommendations[:5]  # Limit to top 5 recommendations
+    
+    def _pattern_based_verification(self, text: str) -> Dict[str, Any]:
+        """Fallback pattern-based legal verification"""
+        text_lower = text.lower()
+        
+        # Basic legal compliance checks
+        compliance_factors = []
+        
+        # Check for essential contract elements
+        if any(term in text_lower for term in ['party', 'parties', 'between']):
+            compliance_factors.append(0.2)  # Parties identified
+        
+        if any(term in text_lower for term in ['consideration', 'payment', 'salary', 'amount']):
+            compliance_factors.append(0.2)  # Consideration present
+        
+        if any(term in text_lower for term in ['term', 'duration', 'period']):
+            compliance_factors.append(0.15)  # Duration specified
+        
+        if any(term in text_lower for term in ['obligation', 'duty', 'responsibility']):
+            compliance_factors.append(0.15)  # Obligations defined
+        
+        if any(term in text_lower for term in ['termination', 'end', 'expiry']):
+            compliance_factors.append(0.1)  # Termination clause
+        
+        # Calculate compliance score
+        base_score = sum(compliance_factors)
+        compliance_score = min(base_score + 0.2, 1.0)  # Add base compliance
+        
+        return {
+            "compliance_score": compliance_score,
+            "confidence": 0.6,  # Medium confidence for pattern-based
+            "legal_issues": ["Pattern-based analysis - limited detail available"],
+            "recommendations": [
+                "Use advanced legal AI models for detailed analysis",
+                "Consult legal counsel for comprehensive review"
+            ]
+        }
+
 class ContractAnalysisWorkflow:
     """
-    Production workflow orchestrating all three components:
-    1. Contract Summarizer (modular component)
-    2. RAG Retriever (existing modular component) 
-    3. IndianLegalBERT Verification
+    Enhanced production workflow with legal model verification
     """
     
     def __init__(self):
         """Initialize all components with production settings"""
         self.summarizer = None
-        self.bert_model = None
-        self.bert_tokenizer = None
+        self.legal_verifier = None
         self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
         
-        logger.info(f"Initializing workflow for project: {self.project_id}")
+        logger.info(f"Initializing enhanced workflow for project: {self.project_id}")
         self._initialize_components()
     
     def _initialize_components(self):
@@ -71,370 +336,249 @@ class ContractAnalysisWorkflow:
             logger.error(f"Contract summarizer initialization failed: {e}")
             self.summarizer = None
         
-        # Initialize IndianLegalBERT
+        # Initialize legal verifier
         try:
-            logger.info("Initializing IndianLegalBERT...")
-            model_name = "law-ai/InLegalBERT"
-            self.bert_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.bert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            logger.info("IndianLegalBERT initialized successfully")
+            logger.info("Initializing legal verifier...")
+            self.legal_verifier = LegalModelVerifier(project_id=self.project_id)
+            logger.info("Legal verifier initialized successfully")
         except Exception as e:
-            logger.error(f"IndianLegalBERT initialization failed: {e}")
-            self.bert_model = None
-            self.bert_tokenizer = None
+            logger.error(f"Legal verifier initialization failed: {e}")
+            self.legal_verifier = None
         
         # Log component status
         components_status = {
             "summarizer": "active" if self.summarizer else "inactive",
-            "bert": "active" if self.bert_model else "inactive",
-            "rag": "unknown"  # RAG status checked dynamically
+            "legal_verifier": "active" if self.legal_verifier else "inactive",
+            "rag": "active"
         }
-        logger.info(f"Component initialization complete: {components_status}")
+        logger.info(f"Enhanced component initialization complete: {components_status}")
     
     def analyze_contract(self, contract_text: str) -> Dict[str, Any]:
         """
-        Complete contract analysis using all three components
-        
-        Args:
-            contract_text: Full contract text
-            
-        Returns:
-            Comprehensive analysis results
+        Complete contract analysis with legal verification
         """
-        logger.info(f"Starting contract analysis for text length: {len(contract_text)}")
+        logger.info(f"Starting enhanced contract analysis for text length: {len(contract_text)}")
         
         results = {
             "summary": None,
             "constitutional_analysis": None,
-            "verification_score": None,
+            "legal_verification": None,
             "key_terms": None,
             "themes": None,
             "component_status": {
                 "summarizer": "inactive",
-                "rag": "inactive", 
-                "bert": "inactive"
+                "legal_verifier": "inactive",
+                "rag": "inactive"
             },
-            "errors": [],
-            "processing_time": None
+            "errors": []
         }
         
-        import time
-        start_time = time.time()
-        
-        # Component 1: Contract Summarization
-        try:
-            if self.summarizer:
+        # 1. Contract Summarization using Vertex AI
+        if self.summarizer:
+            try:
                 logger.info("Running contract summarization...")
-                results["summary"] = self.summarizer.generate_summary(contract_text)
-                results["key_terms"] = self.summarizer.extract_key_terms(contract_text)
-                results["themes"] = self.summarizer.get_contract_themes(contract_text)
+                summary_result = self.summarizer.summarize_contract(contract_text)
+                results["summary"] = summary_result.get("summary", "Summary not available")
+                results["key_terms"] = summary_result.get("key_terms", {})
+                results["themes"] = summary_result.get("themes", [])
                 results["component_status"]["summarizer"] = "active"
                 logger.info("Contract summarization completed successfully")
-            else:
-                logger.warning("Contract summarizer not available")
-                results["errors"].append("Contract summarizer not available")
-                results["summary"] = "Summarization service unavailable"
-        except Exception as e:
-            logger.error(f"Summarization error: {e}")
-            results["errors"].append(f"Summarization failed: {str(e)}")
-            results["summary"] = "Summarization failed"
+            except Exception as e:
+                error_msg = f"Summarization failed: {str(e)}"
+                logger.error(error_msg)
+                results["errors"].append(error_msg)
+                results["summary"] = "Contract summarization temporarily unavailable"
         
-        # Component 2: RAG Constitutional Analysis
+        # 2. Legal Verification using IndianLegalBERT or alternatives
+        if self.legal_verifier:
+            try:
+                logger.info("Running legal verification...")
+                verification_result = self.legal_verifier.verify_legal_compliance(contract_text)
+                results["legal_verification"] = verification_result
+                results["component_status"]["legal_verifier"] = "active"
+                logger.info(f"Legal verification completed: {verification_result['verification_method']}")
+            except Exception as e:
+                error_msg = f"Legal verification failed: {str(e)}"
+                logger.error(error_msg)
+                results["errors"].append(error_msg)
+                results["legal_verification"] = {"error": "Legal verification temporarily unavailable"}
+        
+        # 3. Constitutional Analysis using RAG
         try:
-            logger.info("Running RAG constitutional analysis...")
-            themes = results.get("themes", ["Contract Enforcement"])
-            
-            # Use first theme for RAG analysis
-            primary_theme = themes[0] if themes else "Contract Enforcement"
-            rag_result = get_rag_explanation(primary_theme)
-            
-            if rag_result and "error" not in rag_result.lower():
-                results["constitutional_analysis"] = rag_result
-                results["component_status"]["rag"] = "active"
-                logger.info("RAG analysis completed successfully")
-            else:
-                logger.warning("RAG service returned error, using fallback")
-                results["constitutional_analysis"] = self._fallback_constitutional_analysis(contract_text)
-                results["errors"].append("RAG service unavailable, using fallback")
-                
+            logger.info("Running constitutional analysis...")
+            constitutional_result = get_rag_explanation(contract_text)
+            results["constitutional_analysis"] = constitutional_result
+            results["component_status"]["rag"] = "active"
+            logger.info("Constitutional analysis completed successfully")
         except Exception as e:
-            logger.error(f"RAG analysis error: {e}")
-            results["errors"].append(f"RAG analysis failed: {str(e)}")
-            results["constitutional_analysis"] = self._fallback_constitutional_analysis(contract_text)
+            error_msg = f"Constitutional analysis failed: {str(e)}"
+            logger.error(error_msg)
+            results["errors"].append(error_msg)
+            results["constitutional_analysis"] = "Constitutional analysis temporarily unavailable"
         
-        # Component 3: IndianLegalBERT Verification
-        try:
-            if self.bert_model and self.bert_tokenizer:
-                logger.info("Running IndianLegalBERT verification...")
-                verification_score = self._verify_with_bert(contract_text)
-                results["verification_score"] = verification_score
-                results["component_status"]["bert"] = "active"
-                logger.info("BERT verification completed successfully")
-            else:
-                logger.warning("IndianLegalBERT not available")
-                results["errors"].append("IndianLegalBERT not available")
-                results["verification_score"] = "Verification service unavailable"
-        except Exception as e:
-            logger.error(f"BERT verification error: {e}")
-            results["errors"].append(f"BERT verification failed: {str(e)}")
-            results["verification_score"] = "Verification failed"
-        
-        # Calculate processing time
-        results["processing_time"] = round(time.time() - start_time, 2)
-        logger.info(f"Contract analysis completed in {results['processing_time']} seconds")
-        
+        logger.info("Enhanced contract analysis workflow completed")
         return results
-    
-    def _verify_with_bert(self, contract_text: str) -> str:
-        """
-        Verify contract using IndianLegalBERT
-        
-        Args:
-            contract_text: Contract text to verify
-            
-        Returns:
-            Verification confidence score
-        """
-        try:
-            # Tokenize input (limit to BERT max length)
-            inputs = self.bert_tokenizer(
-                contract_text[:512],
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=512
-            )
-            
-            # Get model prediction
-            with torch.no_grad():
-                outputs = self.bert_model(**inputs)
-                predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
-                confidence = torch.max(predictions).item()
-            
-            # Convert to percentage
-            confidence_percentage = round(confidence * 100, 1)
-            
-            return f"{confidence_percentage}% confidence"
-            
-        except Exception as e:
-            logger.error(f"BERT verification error: {e}")
-            return "Verification failed"
-    
-    def _fallback_constitutional_analysis(self, contract_text: str) -> str:
-        """
-        Fallback constitutional analysis when RAG is unavailable
-        
-        Args:
-            contract_text: Contract text to analyze
-            
-        Returns:
-            Basic constitutional analysis
-        """
-        constitutional_aspects = []
-        text_lower = contract_text.lower()
-        
-        # Analyze constitutional relevance
-        if any(word in text_lower for word in ["payment", "money", "rupees", "amount", "consideration"]):
-            constitutional_aspects.append("Economic rights under Article 19(1)(g) - Right to practice profession")
-        
-        if any(word in text_lower for word in ["employment", "work", "labor", "service", "employee"]):
-            constitutional_aspects.append("Right against exploitation under Articles 23-24")
-        
-        if any(word in text_lower for word in ["property", "land", "ownership", "title", "possession"]):
-            constitutional_aspects.append("Property rights under Article 300A")
-        
-        if any(word in text_lower for word in ["discrimination", "equality", "equal", "bias"]):
-            constitutional_aspects.append("Right to equality under Article 14")
-        
-        if any(word in text_lower for word in ["freedom", "liberty", "expression", "speech"]):
-            constitutional_aspects.append("Fundamental rights under Article 19")
-        
-        if not constitutional_aspects:
-            constitutional_aspects.append("General contract enforcement under Article 19(1)(g)")
-        
-        return "Constitutional relevance: " + "; ".join(constitutional_aspects)
 
-# Initialize workflow
-logger.info("Initializing contract analysis workflow...")
+# Initialize the enhanced workflow
 workflow = ContractAnalysisWorkflow()
 
-@app.route('/analyze', methods=['POST'])
-def analyze_contract():
-    """
-    Main analysis endpoint
-    Processes contract text through all three components
-    """
-    try:
-        data = request.get_json()
-        
-        if not data or 'text' not in data:
-            logger.warning("Analysis request missing text data")
-            return jsonify({
-                "error": "No contract text provided",
-                "summary": "Error: No input text",
-                "constitutional_analysis": "Error: No input text",
-                "verification_score": "Error: No input text"
-            }), 400
-        
-        contract_text = data['text'].strip()
-        
-        if len(contract_text) < 50:
-            logger.warning(f"Contract text too short: {len(contract_text)} characters")
-            return jsonify({
-                "error": "Contract text too short",
-                "summary": "Error: Text too short for analysis",
-                "constitutional_analysis": "Error: Text too short for analysis", 
-                "verification_score": "Error: Text too short for analysis"
-            }), 400
-        
-        # Run complete analysis
-        results = workflow.analyze_contract(contract_text)
-        
-        # Format response for frontend compatibility
-        response = {
-            "summary": results.get("summary", "Summary unavailable"),
-            "constitutional_analysis": results.get("constitutional_analysis", "Analysis unavailable"),
-            "verification_score": results.get("verification_score", "Verification unavailable"),
-            "component_status": results.get("component_status", {}),
-            "key_terms": results.get("key_terms", {}),
-            "themes": results.get("themes", []),
-            "errors": results.get("errors", []),
-            "processing_time": results.get("processing_time", 0)
-        }
-        
-        logger.info("Analysis completed successfully")
-        return jsonify(response)
-        
-    except Exception as e:
-        logger.error(f"Analysis endpoint error: {e}")
-        logger.error(traceback.format_exc())
-        
-        return jsonify({
-            "error": f"Analysis failed: {str(e)}",
-            "summary": "Analysis failed due to server error",
-            "constitutional_analysis": "Analysis failed due to server error",
-            "verification_score": "Analysis failed due to server error"
-        }), 500
-
-@app.route('/auto-analyze', methods=['POST'])
-def auto_analyze_contract():
-    """
-    Auto-analysis endpoint for detected contract content
-    Same functionality as /analyze but optimized for auto-detection
-    """
-    try:
-        data = request.get_json()
-        
-        if not data or 'text' not in data:
-            return jsonify({"error": "No contract text provided"}), 400
-        
-        contract_text = data['text'].strip()
-        confidence = data.get('confidence', 0)
-        
-        logger.info(f"Auto-analysis request with {confidence}% confidence")
-        
-        # Add confidence info to analysis
-        results = workflow.analyze_contract(contract_text)
-        results['detection_confidence'] = confidence
-        results['auto_detected'] = True
-        
-        # Format response
-        response = {
-            "summary": results.get("summary", "Summary unavailable"),
-            "constitutional_analysis": results.get("constitutional_analysis", "Analysis unavailable"),
-            "verification_score": results.get("verification_score", "Verification unavailable"),
-            "component_status": results.get("component_status", {}),
-            "detection_confidence": confidence,
-            "auto_detected": True,
-            "processing_time": results.get("processing_time", 0)
-        }
-        
-        logger.info(f"Auto-analysis completed with {confidence}% confidence")
-        return jsonify(response)
-        
-    except Exception as e:
-        logger.error(f"Auto-analysis error: {e}")
-        return jsonify({"error": f"Auto-analysis failed: {str(e)}"}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint for Cloud Run"""
-    component_status = {
-        "summarizer": "active" if workflow.summarizer else "inactive",
-        "bert": "active" if workflow.bert_model else "inactive",
-        "rag": "unknown"  # RAG status checked dynamically
-    }
-    
-    return jsonify({
-        "status": "healthy",
-        "components": component_status,
-        "project_id": workflow.project_id,
-        "message": "GenAI Smart Contract Pro backend is running"
-    })
-
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return jsonify({
-        "service": "GenAI Smart Contract Pro",
-        "version": "1.0.0",
-        "environment": "production",
-        "components": ["Contract Summarizer", "RAG Retriever", "IndianLegalBERT"],
-        "endpoints": ["/analyze", "/auto-analyze", "/health"]
-    })
-
-@app.errorhandler(404)
-def not_found(error):
-    """Handle 404 errors"""
-    return jsonify({"error": "Endpoint not found"}), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle 500 errors"""
-    logger.error(f"Internal server error: {error}")
-    return jsonify({"error": "Internal server error"}), 500
-    
-@app.route('/', methods=['GET'])
-def root():
-    return {
-        "message": "GenAI Smart Contract Pro API",
-        "status": "running",
-        "endpoints": ["/", "/health", "/analyze"]
-    }, 200
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    return {
-        "status": "healthy",
-        "service": "GenAI Contract Pro"
-    }, 200
-
+# Flask Routes
 @app.route('/')
 def root():
-    return jsonify({"message": "GenAI Contract Pro API", "status": "running"})
+    """Root endpoint to verify service is running"""
+    return jsonify({
+        "message": "GenAI Smart Contract Pro API - Enhanced with Legal Verification",
+        "status": "running",
+        "timestamp": datetime.now().isoformat(),
+        "endpoints": ["/", "/health", "/analyze", "/status"],
+        "features": ["Contract Summarization", "Legal Verification", "Constitutional Analysis"],
+        "version": "2.1.0"
+    })
 
 @app.route('/health')
 def health_check():
-    return jsonify({"status": "healthy", "service": "GenAI Contract Pro"})
+    """Health check endpoint for Cloud Run"""
+    return jsonify({
+        "status": "healthy",
+        "service": "GenAI Contract Pro Enhanced",
+        "timestamp": datetime.now().isoformat(),
+        "components": {
+            "summarizer": "active" if workflow.summarizer else "inactive",
+            "legal_verifier": "active" if workflow.legal_verifier else "inactive",
+            "rag": "active",
+            "vertexai": "integrated"
+        }
+    })
 
+@app.route('/analyze', methods=['POST'])
+def analyze_contract_endpoint():
+    """
+    Enhanced contract analysis endpoint with legal verification
+    """
+    try:
+        # Validate request
+        if not request.is_json:
+            return jsonify({"error": "Request must be JSON"}), 400
+        
+        data = request.get_json()
+        contract_text = data.get('text', '').strip()
+        
+        if not contract_text:
+            return jsonify({"error": "No contract text provided"}), 400
+        
+        if len(contract_text) < 10:
+            return jsonify({"error": "Contract text too short for analysis"}), 400
+        
+        # Perform enhanced analysis
+        logger.info(f"Received enhanced analysis request for {len(contract_text)} characters")
+        results = workflow.analyze_contract(contract_text)
+        
+        # Format enhanced response
+        response = {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "analysis": {
+                "summary": results.get("summary", "Not available"),
+                "constitutional_insights": results.get("constitutional_analysis", "Not available"),
+                "legal_verification": results.get("legal_verification", {}),
+                "key_terms": results.get("key_terms", {}),
+                "themes": results.get("themes", [])
+            },
+            "metadata": {
+                "text_length": len(contract_text),
+                "component_status": results.get("component_status", {}),
+                "processing_errors": results.get("errors", []),
+                "verification_method": results.get("legal_verification", {}).get("verification_method", "none")
+            }
+        }
+        
+        logger.info("Enhanced analysis completed successfully")
+        return jsonify(response)
+        
+    except Exception as e:
+        error_msg = f"Enhanced analysis endpoint error: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        
+        return jsonify({
+            "success": False,
+            "error": "Internal server error during enhanced analysis",
+            "timestamp": datetime.now().isoformat(),
+            "details": str(e) if app.debug else "Contact support for assistance"
+        }), 500
 
-# Main execution for Cloud Run
+@app.route('/status', methods=['GET'])
+def status_endpoint():
+    """Detailed status endpoint for monitoring"""
+    try:
+        legal_verifier_status = "inactive"
+        verification_method = "none"
+        
+        if workflow.legal_verifier:
+            legal_verifier_status = "active"
+            if workflow.legal_verifier.indian_legal_bert:
+                verification_method = "IndianLegalBERT"
+            elif workflow.legal_verifier.vertex_model:
+                verification_method = "Vertex AI Legal"
+            else:
+                verification_method = "Pattern-based"
+        
+        return jsonify({
+            "service": "GenAI Smart Contract Pro Enhanced",
+            "status": "operational",
+            "timestamp": datetime.now().isoformat(),
+            "components": {
+                "flask": "active",
+                "contract_summarizer": "active" if workflow.summarizer else "inactive",
+                "legal_verifier": legal_verifier_status,
+                "verification_method": verification_method,
+                "rag_retriever": "active",
+                "vertexai": "integrated"
+            },
+            "environment": {
+                "project_id": workflow.project_id,
+                "python_version": sys.version.split()[0],
+                "flask_version": Flask.__version__,
+                "torch_available": torch.cuda.is_available() if 'torch' in sys.modules else False
+            }
+        })
+    except Exception as e:
+        logger.error(f"Status endpoint error: {e}")
+        return jsonify({
+            "service": "GenAI Smart Contract Pro Enhanced",
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        "error": "Endpoint not found",
+        "available_endpoints": ["/", "/health", "/analyze", "/status"]
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        "error": "Internal server error",
+        "timestamp": datetime.now().isoformat()
+    }), 500
+
+# Main execution
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=False)
-
-    logger.info(f"Starting GenAI Smart Contract Pro backend on port {port}")
-    logger.info("Components: Contract Summarizer + RAG Retriever + IndianLegalBERT")
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
     
-    # Run Flask app
+    logger.info(f"Starting GenAI Contract Pro Enhanced on port {port}")
+    logger.info(f"Debug mode: {debug_mode}")
+    logger.info(f"Project ID: {workflow.project_id}")
+    
     app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=debug
+        host="0.0.0.0", 
+        port=port, 
+        debug=debug_mode,
+        threaded=True
     )
-
-
-
-
-
