@@ -50,15 +50,15 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--memory'
-      - '2Gi'
+      - '4Gi'  # FIXED: Enough for all AI models
       - '--cpu'
-      - '1'
+      - '2'    # Also increase CPU for better performance
       - '--max-instances'
       - '10'
       - '--min-instances'
       - '0'
       - '--timeout'
-      - '300'
+      - '600'
       - '--set-env-vars'
       - 'ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
 
