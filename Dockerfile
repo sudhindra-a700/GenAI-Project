@@ -1,6 +1,4 @@
-# Dockerfile for GenAI Smart Contract Pro Backend
-# Optimized for Google Cloud Run deployment
-
+# Dockerfile for FastAPI GenAI Smart Contract Pro
 FROM python:3.11-slim
 
 # Set working directory
@@ -16,30 +14,23 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY main_workflow.py .
-COPY contract_summarizer.py .
-COPY rag_retriever.py .
+COPY . .
 
-# Create non-root user for security
+# Create non-root user
 RUN useradd --create-home --shell /bin/bash app
 RUN chown -R app:app /app
 USER app
 
-# Expose port (Cloud Run uses PORT environment variable)
+# Expose port
 EXPOSE 8080
-
-# Set environment variables
-ENV PORT=8080
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Run the application with gunicorn
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 300 main_workflow:app
-
+# Run FastAPI with uvicorn directly (no gunicorn needed)
+CMD ["python", "main_workflow.py"]
