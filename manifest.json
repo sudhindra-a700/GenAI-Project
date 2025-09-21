@@ -1,13 +1,47 @@
 {
   "manifest_version": 3,
-  "name": "Pico Minimalist Extension",
-  "version": "1.0",
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": "icon.png" 
-  },
+  "name": "GenAI Smart Contract Pro",
+  "version": "1.0.0",
+  "description": "AI-powered contract analysis with RAG constitutional matching, summarization, and IndianLegalBERT verification",
+  
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "tabs",
+    "storage"
   ],
-  "description": "A clean, modern extension UI inspired by leading productivity apps."
+  
+  "host_permissions": [
+    "http://localhost:5000/*",
+    "https://*/*"
+  ],
+  
+  "action": {
+    "default_popup": "browser.html",
+    "default_title": "GenAI Smart Contract Pro",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
 }
