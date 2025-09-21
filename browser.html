@@ -4,597 +4,429 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GenAI Smart Contract Pro</title>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
-        :root {
-            --accent-primary: #00b87c;
-            --accent-secondary: #0066cc;
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --bg-tertiary: #3a3a3a;
-            --text-primary: #ffffff;
-            --text-secondary: #b3b3b3;
-            --text-muted: #808080;
-            --border-color: #404040;
-            --error-color: #ff4444;
-            --success-color: #00b87c;
-            --warning-color: #ffaa00;
-        }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            width: 400px;
-            min-height: 600px;
+            width: 380px;
+            min-height: 500px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
         }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         }
-
-        .app-header {
-            background: var(--bg-secondary);
-            padding: 16px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .app-title {
+        
+        .header h1 {
             font-size: 18px;
             font-weight: 600;
-            color: var(--accent-primary);
+            color: #1a73e8;
+            margin-bottom: 5px;
         }
-
-        .header-actions {
-            display: flex;
-            gap: 8px;
+        
+        .header p {
+            font-size: 12px;
+            color: #5f6368;
         }
-
-        .btn-icon {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
+        
+        .content {
+            padding: 20px;
+            background: white;
+            min-height: 400px;
         }
-
-        .btn-icon:hover {
-            color: var(--accent-primary);
-            background: var(--bg-tertiary);
-        }
-
-        /* Auto-detection status bar - Enhanced with Lucide icons */
-        .auto-detect-status {
-            padding: 12px 16px;
-            margin: 16px;
-            border-radius: 8px;
-            border-left: 4px solid var(--border-color);
-            background: var(--bg-secondary);
+        
+        .status {
             display: flex;
             align-items: center;
-            gap: 12px;
-            transition: all 0.3s ease;
+            gap: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1a73e8;
         }
-
-        .auto-detect-status.detected {
-            border-left: 4px solid var(--success-color);
-            background: rgba(0, 184, 124, 0.1);
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #34a853;
             animation: pulse 2s infinite;
         }
-
-        .auto-detect-status.analyzing {
-            border-left: 4px solid var(--warning-color);
-            background: rgba(255, 170, 0, 0.1);
-        }
-
+        
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
-
-        .status-icon {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
+        
+        .status.error .status-indicator {
+            background: #ea4335;
         }
-
-        .status-text {
-            flex: 1;
-            font-size: 14px;
+        
+        .status.loading .status-indicator {
+            background: #fbbc04;
         }
-
-        .confidence-indicator {
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 16px;
-            overflow-y: auto;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        /* Auto analyze button - Enhanced with Lucide icon */
-        .btn-auto-analyze {
+        
+        .analyze-btn {
             width: 100%;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, var(--accent-primary), #00a86b);
+            background: linear-gradient(135deg, #1a73e8, #4285f4);
             color: white;
             border: none;
+            padding: 15px;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 16px;
+            transition: all 0.2s;
+            margin-bottom: 20px;
         }
-
-        .btn-auto-analyze:hover {
+        
+        .analyze-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 184, 124, 0.3);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
         }
-
-        .btn-auto-analyze:disabled {
-            opacity: 0.5;
+        
+        .analyze-btn:disabled {
+            background: #dadce0;
+            color: #5f6368;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
         }
-
-        .form-textarea {
-            width: 100%;
-            min-height: 120px;
-            padding: 12px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
             border-radius: 8px;
-            color: var(--text-primary);
+            border-left: 3px solid #1a73e8;
+        }
+        
+        .result-section h3 {
             font-size: 14px;
-            resize: vertical;
-            transition: border-color 0.2s ease;
+            font-weight: 600;
+            color: #1a73e8;
+            margin-bottom: 8px;
         }
-
-        .form-textarea:focus {
-            outline: none;
-            border-color: var(--accent-primary);
+        
+        .result-section p {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #5f6368;
         }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 12px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        
+        .key-terms {
+            display: grid;
             gap: 8px;
         }
-
-        .btn-primary {
-            background: var(--accent-secondary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0052a3;
-            transform: translateY(-1px);
-        }
-
-        /* Component status badges - Enhanced with Lucide icons */
-        .component-status {
+        
+        .key-term {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .status-badge {
-            flex: 1;
+            justify-content: space-between;
             padding: 8px 12px;
-            background: var(--bg-secondary);
+            background: white;
             border-radius: 6px;
-            text-align: center;
             font-size: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            transition: all 0.2s ease;
         }
-
-        .status-badge.active {
-            background: rgba(0, 184, 124, 0.2);
-            border: 1px solid var(--success-color);
+        
+        .key-term .label {
+            font-weight: 500;
+            color: #202124;
         }
-
-        .status-badge.processing {
-            background: rgba(255, 170, 0, 0.2);
-            border: 1px solid var(--warning-color);
+        
+        .key-term .value {
+            color: #5f6368;
         }
-
-        .badge-icon {
+        
+        .risk-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .risk-low {
+            background: #e6f4ea;
+            color: #137333;
+        }
+        
+        .risk-medium {
+            background: #fef7e0;
+            color: #f9ab00;
+        }
+        
+        .risk-high {
+            background: #fce8e6;
+            color: #d93025;
+        }
+        
+        .footer {
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .footer p {
+            font-size: 11px;
+            color: #5f6368;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
             width: 16px;
             height: 16px;
-        }
-
-        .results-container {
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 16px;
-            border: 1px solid var(--border-color);
-        }
-
-        .results-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            font-weight: 500;
-        }
-
-        .results-content {
-            font-size: 14px;
-            line-height: 1.5;
-            color: var(--text-secondary);
-        }
-
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 20px;
-            color: var(--text-muted);
-        }
-
-        .loading .spinner {
-            width: 20px;
-            height: 20px;
+            border: 2px solid rgba(26, 115, 232, 0.3);
+            border-top: 2px solid #1a73e8;
+            border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-right: 8px;
         }
-
+        
         @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-
-        .error {
-            color: var(--error-color);
-            background: rgba(255, 68, 68, 0.1);
+        
+        .error-message {
+            background: #fce8e6;
+            color: #d93025;
             padding: 12px;
             border-radius: 6px;
-            border-left: 4px solid var(--error-color);
+            font-size: 12px;
+            margin-bottom: 15px;
+            border-left: 3px solid #d93025;
         }
-
-        .fadeIn {
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        
+        .success-message {
+            background: #e6f4ea;
+            color: #137333;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 15px;
+            border-left: 3px solid #137333;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <h1 class="app-title">GenAI Smart Contract Pro</h1>
-            <div class="header-actions">
-                <button class="btn-icon" id="refreshBtn" title="Refresh Detection">
-                    <i data-lucide="refresh-ccw" class="lucide"></i>
-                </button>
-            </div>
-        </header>
-
-        <main class="main-content">
-            <!-- Auto-detection status with Lucide icons -->
-            <div class="auto-detect-status" id="autoDetectStatus">
-                <i data-lucide="search" class="status-icon lucide"></i>
-                <div class="status-text">Scanning for contract content...</div>
-                <div class="confidence-indicator" id="confidenceIndicator"></div>
-            </div>
-
-            <!-- Auto analyze button with Lucide icon -->
-            <button class="btn-auto-analyze" id="autoAnalyzeBtn" disabled>
-                <i data-lucide="zap" class="lucide"></i>
-                Auto Analyze Page
-            </button>
-
-            <!-- Component status badges with Lucide icons -->
-            <div class="component-status">
-                <div class="status-badge" id="ragStatus">
-                    <i data-lucide="book-open" class="badge-icon lucide"></i>
-                    <span>RAG</span>
-                </div>
-                <div class="status-badge" id="summaryStatus">
-                    <i data-lucide="file-text" class="badge-icon lucide"></i>
-                    <span>Summary</span>
-                </div>
-                <div class="status-badge" id="bertStatus">
-                    <i data-lucide="shield-check" class="badge-icon lucide"></i>
-                    <span>BERT</span>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="contractText">Contract Text (Optional - for manual analysis)</label>
-                <textarea 
-                    class="form-textarea" 
-                    id="contractText" 
-                    placeholder="Paste contract text here for manual analysis, or use Auto Analyze for detected content..."
-                ></textarea>
-            </div>
-
-            <div class="btn-group">
-                <button class="btn btn-primary" id="analyzeBtn">
-                    <i data-lucide="play" class="lucide"></i>
-                    Analyze Contract
-                </button>
-            </div>
-
-            <div class="results-container" id="resultsContainer" style="display: none;">
-                <div class="results-header">
-                    <i data-lucide="file-check" class="lucide"></i>
-                    Analysis Results
-                </div>
-                <div class="results-content" id="resultsContent"></div>
-            </div>
-        </main>
+    <div class="header">
+        <h1>GenAI Smart Contract Pro</h1>
+        <p>AI-powered contract analysis with constitutional insights</p>
+    </div>
+    
+    <div class="content">
+        <div class="status" id="status">
+            <div class="status-indicator"></div>
+            <span id="status-text">Ready to analyze contracts</span>
+        </div>
+        
+        <button class="analyze-btn" id="analyzeBtn">
+            📄 Analyze Contract on This Page
+        </button>
+        
+        <div id="messages"></div>
+        
+        <div class="results" id="results" style="display: none;">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Powered by Google Cloud Run & Vertex AI</p>
     </div>
 
     <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-
-        // Enhanced contract analyzer with debouncing
-        class ContractAnalyzer {
-            constructor() {
-                this.analysisTimer = null; // Debouncing timer
-                this.isAnalyzing = false;
-                this.detectedContent = null;
+        // Production API configuration
+        const API_BASE_URL = 'https://genai-project-912902007097.europe-west4.run.app';
+        
+        // DOM elements
+        const statusEl = document.getElementById('status');
+        const statusTextEl = document.getElementById('status-text');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const messagesEl = document.getElementById('messages');
+        const resultsEl = document.getElementById('results');
+        
+        // State
+        let isAnalyzing = false;
+        
+        // Initialize popup
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServiceHealth();
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            analyzeBtn.addEventListener('click', analyzeCurrentPage);
+        }
+        
+        async function checkServiceHealth() {
+            try {
+                updateStatus('loading', 'Checking service connection...');
                 
-                this.initializeElements();
-                this.bindEvents();
-                this.checkForDetectedContent();
-            }
-            
-            initializeElements() {
-                this.autoDetectStatus = document.getElementById('autoDetectStatus');
-                this.confidenceIndicator = document.getElementById('confidenceIndicator');
-                this.autoAnalyzeBtn = document.getElementById('autoAnalyzeBtn');
-                this.contractText = document.getElementById('contractText');
-                this.analyzeBtn = document.getElementById('analyzeBtn');
-                this.refreshBtn = document.getElementById('refreshBtn');
-                this.resultsContainer = document.getElementById('resultsContainer');
-                this.resultsContent = document.getElementById('resultsContent');
-                
-                // Component status elements
-                this.ragStatus = document.getElementById('ragStatus');
-                this.summaryStatus = document.getElementById('summaryStatus');
-                this.bertStatus = document.getElementById('bertStatus');
-            }
-            
-            bindEvents() {
-                this.autoAnalyzeBtn.addEventListener('click', () => this.autoAnalyze());
-                this.analyzeBtn.addEventListener('click', () => this.manualAnalyze());
-                this.refreshBtn.addEventListener('click', () => this.refreshDetection());
-                
-                // Listen for contract detection from content script
-                chrome.runtime.onMessage.addListener((message) => {
-                    if (message.action === 'contractDetected') {
-                        this.handleDetectedContract(message.data);
+                const response = await fetch(`${API_BASE_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
                     }
                 });
-            }
-            
-            async checkForDetectedContent() {
-                try {
-                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                    chrome.tabs.sendMessage(tab.id, { action: 'detectContract' }, (response) => {
-                        if (response) {
-                            this.handleDetectedContract(response);
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error checking for content:', error);
-                }
-            }
-            
-            handleDetectedContract(data) {
-                this.detectedContent = data;
                 
-                if (data.detected) {
-                    this.updateDetectionStatus('detected', data.confidence);
-                    this.autoAnalyzeBtn.disabled = false;
+                if (response.ok) {
+                    updateStatus('ready', 'Connected to analysis service');
                 } else {
-                    this.updateDetectionStatus('not-detected', 0);
-                    this.autoAnalyzeBtn.disabled = true;
+                    throw new Error(`Service returned ${response.status}`);
                 }
-            }
-            
-            updateDetectionStatus(status, confidence) {
-                const statusIcon = this.autoDetectStatus.querySelector('.lucide');
-                const statusText = this.autoDetectStatus.querySelector('.status-text');
-                
-                this.autoDetectStatus.className = 'auto-detect-status';
-                
-                switch (status) {
-                    case 'detected':
-                        this.autoDetectStatus.classList.add('detected');
-                        statusIcon.setAttribute('data-lucide', 'file-check');
-                        statusText.textContent = 'Contract content detected!';
-                        this.confidenceIndicator.textContent = `${confidence}% confidence`;
-                        break;
-                    case 'analyzing':
-                        this.autoDetectStatus.classList.add('analyzing');
-                        statusIcon.setAttribute('data-lucide', 'loader');
-                        statusText.textContent = 'Analyzing contract...';
-                        this.confidenceIndicator.textContent = '';
-                        break;
-                    case 'not-detected':
-                        statusIcon.setAttribute('data-lucide', 'search');
-                        statusText.textContent = 'No contract content detected';
-                        this.confidenceIndicator.textContent = '';
-                        break;
-                }
-                
-                lucide.createIcons();
-            }
-            
-            async autoAnalyze() {
-                if (!this.detectedContent || this.isAnalyzing) return;
-                
-                this.updateDetectionStatus('analyzing');
-                this.setComponentStatus('all', 'processing');
-                
-                // Debounced analysis
-                clearTimeout(this.analysisTimer);
-                this.analysisTimer = setTimeout(async () => {
-                    await this.performAnalysis(this.detectedContent.text);
-                }, 1000);
-            }
-            
-            async manualAnalyze() {
-                const text = this.contractText.value.trim();
-                if (!text || this.isAnalyzing) return;
-                
-                this.updateDetectionStatus('analyzing');
-                this.setComponentStatus('all', 'processing');
-                
-                // Debounced analysis
-                clearTimeout(this.analysisTimer);
-                this.analysisTimer = setTimeout(async () => {
-                    await this.performAnalysis(text);
-                }, 1000);
-            }
-            
-            async performAnalysis(text) {
-                this.isAnalyzing = true;
-                
-                try {
-                    const response = await fetch('http://localhost:5000/analyze', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ text: text })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    this.displayResults(result);
-                    this.setComponentStatus('all', 'active');
-                    
-                } catch (error) {
-                    console.error('Analysis error:', error);
-                    this.displayError('Analysis failed. Please check if the backend server is running.');
-                    this.setComponentStatus('all', 'inactive');
-                } finally {
-                    this.isAnalyzing = false;
-                    this.updateDetectionStatus('detected', this.detectedContent?.confidence || 0);
-                }
-            }
-            
-            setComponentStatus(component, status) {
-                const components = component === 'all' 
-                    ? [this.ragStatus, this.summaryStatus, this.bertStatus]
-                    : [component];
-                
-                components.forEach(comp => {
-                    comp.className = 'status-badge';
-                    if (status !== 'inactive') {
-                        comp.classList.add(status);
-                    }
-                });
-            }
-            
-            displayResults(result) {
-                this.resultsContent.innerHTML = `
-                    <div class="result-section">
-                        <h4><i data-lucide="file-text" class="lucide"></i> Contract Summary</h4>
-                        <p>${result.summary || 'No summary available'}</p>
-                    </div>
-                    <div class="result-section">
-                        <h4><i data-lucide="book-open" class="lucide"></i> Constitutional Analysis</h4>
-                        <p>${result.constitutional_analysis || 'No constitutional analysis available'}</p>
-                    </div>
-                    <div class="result-section">
-                        <h4><i data-lucide="shield-check" class="lucide"></i> Verification Score</h4>
-                        <p>Confidence: ${result.verification_score || 'N/A'}</p>
-                    </div>
-                `;
-                
-                this.resultsContainer.style.display = 'block';
-                this.resultsContainer.classList.add('fadeIn');
-                lucide.createIcons();
-            }
-            
-            displayError(message) {
-                this.resultsContent.innerHTML = `
-                    <div class="error">
-                        <i data-lucide="alert-circle" class="lucide"></i>
-                        ${message}
-                    </div>
-                `;
-                this.resultsContainer.style.display = 'block';
-                lucide.createIcons();
-            }
-            
-            async refreshDetection() {
-                this.updateDetectionStatus('not-detected', 0);
-                this.autoAnalyzeBtn.disabled = true;
-                await this.checkForDetectedContent();
+            } catch (error) {
+                console.error('Health check failed:', error);
+                updateStatus('error', 'Service connection failed');
+                showMessage('Unable to connect to analysis service. Please try again later.', 'error');
             }
         }
         
-        // Initialize the analyzer when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            new ContractAnalyzer();
+        function updateStatus(type, message) {
+            statusTextEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-message`;
+            messageDiv.textContent = message;
+            messagesEl.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+        
+        async function analyzeCurrentPage() {
+            if (isAnalyzing) return;
+            
+            isAnalyzing = true;
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="loading-spinner"></span>Analyzing...';
+            updateStatus('loading', 'Analyzing contract content...');
+            
+            try {
+                // Get active tab
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                
+                // Send message to content script
+                const response = await chrome.tabs.sendMessage(tab.id, {
+                    action: 'analyzeContract'
+                });
+                
+                if (response && response.success) {
+                    displayResults(response.result);
+                    updateStatus('ready', 'Analysis completed');
+                    showMessage('Contract analysis completed successfully!', 'success');
+                } else {
+                    throw new Error(response?.error || 'Analysis failed');
+                }
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                updateStatus('error', 'Analysis failed');
+                showMessage(`Analysis failed: ${error.message}`, 'error');
+            } finally {
+                isAnalyzing = false;
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '📄 Analyze Contract on This Page';
+            }
+        }
+        
+        function displayResults(results) {
+            if (!results) {
+                resultsEl.style.display = 'none';
+                return;
+            }
+            
+            let html = '';
+            
+            // Summary
+            if (results.summary) {
+                html += `
+                    <div class="result-section">
+                        <h3>📋 Contract Summary</h3>
+                        <p>${results.summary}</p>
+                    </div>
+                `;
+            }
+            
+            // Key Terms
+            if (results.key_terms && Object.keys(results.key_terms).length > 0) {
+                html += `
+                    <div class="result-section">
+                        <h3>🔑 Key Terms</h3>
+                        <div class="key-terms">
+                `;
+                
+                for (const [key, value] of Object.entries(results.key_terms)) {
+                    html += `
+                        <div class="key-term">
+                            <span class="label">${key}:</span>
+                            <span class="value">${value}</span>
+                        </div>
+                    `;
+                }
+                
+                html += '</div></div>';
+            }
+            
+            // Constitutional Insights
+            if (results.constitutional_insights) {
+                html += `
+                    <div class="result-section">
+                        <h3>⚖️ Constitutional Law Insights</h3>
+                        <p>${results.constitutional_insights}</p>
+                    </div>
+                `;
+            }
+            
+            // Risk Assessment
+            if (results.risk_level) {
+                const riskClass = `risk-${results.risk_level.toLowerCase()}`;
+                html += `
+                    <div class="result-section">
+                        <h3>⚠️ Risk Assessment</h3>
+                        <p>
+                            <span class="risk-badge ${riskClass}">${results.risk_level} Risk</span>
+                            ${results.risk_factors ? `<br><small>${results.risk_factors}</small>` : ''}
+                        </p>
+                    </div>
+                `;
+            }
+            
+            resultsEl.innerHTML = html;
+            resultsEl.style.display = 'block';
+        }
+        
+        // Handle content script messages
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'analysisComplete') {
+                displayResults(request.results);
+            }
         });
+        
+        console.log('GenAI Smart Contract Pro Popup - Production version loaded');
+        console.log('Connected to:', API_BASE_URL);
     </script>
 </body>
 </html>
