@@ -1,39 +1,20 @@
-# GenAI Smart Contract Pro - Modular Backend Requirements
-# Updated for contract_summarizer.py + rag_retriever.py + IndianLegalBERT integration
-
-# Core Flask backend
+# FINAL WORKING requirements.txt
 flask==2.3.3
 flask-cors==4.0.0
 gunicorn==21.2.0
 
 # Google Cloud & Vertex AI
 google-cloud-aiplatform==1.38.1
-vertexai<=1.49.0
-google-cloud-storage==2.10.0
+vertexai==1.71.1
 google-auth==2.23.4
 
-# Transformers & ML
+# PyTorch CPU-only with COMPATIBLE versions
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.1.1+cpu
 transformers==4.30.0
-tokenizers==0.15.0
-
-# IndianLegalBERT specific
-datasets==2.14.6
-accelerate==0.24.1
-
-# Text processing
-nltk==3.8.1
-spacy==3.7.2
-beautifulsoup4==4.12.2
+tokenizers==0.13.3
 
 # Utilities
 requests==2.31.0
 python-dotenv==1.0.0
-pydantic>=1.10.0,<3.0.0
 
-# Logging and monitoring
-structlog==23.2.0
-
-# Development (optional)
-pytest==7.4.3
-black==23.11.0
-flake8==6.1.0
