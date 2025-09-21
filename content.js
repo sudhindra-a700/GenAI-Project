@@ -1,18 +1,13 @@
-// Enhanced Content Script for GenAI Smart Contract Pro - MVP Version
-// Only essential improvements from Grammarly's approach
+// Enhanced Content Script for Contract Detection - MVP with Lucide Icons
+// Minimal changes for maximum impact
 
 class ContractDetector {
     constructor() {
-        // Original contract patterns (unchanged)
-        this.contractPatterns = [
-            /\b(?:agreement|contract|terms\s+(?:and|&)\s+conditions)\b/gi,
-            /\b(?:whereas|hereby|party|parties|governing\s+law)\b/gi,
-            /\b(?:payment\s+terms|delivery|warranty|termination)\b/gi,
-            /\b(?:employment|service|procurement|lease|license)\b/gi,
-            /\b(?:confidentiality|non-disclosure|intellectual\s+property)\b/gi
-        ];
+        this.isDetecting = false;
+        this.lastAnalysis = null;
+        this.confidenceThreshold = 0.3;
         
-        // ENHANCEMENT #1: Add legal keyword patterns (inspired by Grammarly's layered detection)
+        // Enhanced legal patterns for better detection
         this.legalPatterns = [
             /\b(agreement|contract|terms\s+and\s+conditions)\b/gi,
             /\b(whereas|hereby|party|parties|governing\s+law)\b/gi,
@@ -21,213 +16,119 @@ class ContractDetector {
             /\b(jurisdiction|dispute|arbitration|mediation)\b/gi
         ];
         
-        this.legalKeywords = [
-            'shall', 'hereby', 'whereas', 'therefore', 'notwithstanding',
-            'pursuant', 'covenant', 'indemnify', 'liability', 'breach'
-        ];
+        this.init();
     }
-
-    extractPageContent() {
-        // Get main text content (unchanged)
-        const textContent = this.getCleanTextContent();
-        
-        // Get page metadata (unchanged)
-        const url = window.location.href;
-        const title = document.title;
-        
-        return {
-            text: textContent,
-            url: url,
-            title: title,
-            timestamp: Date.now()
-        };
-    }
-
-    getCleanTextContent() {
-        // Remove script and style elements (unchanged)
-        const elementsToRemove = document.querySelectorAll('script, style, nav, header, footer, aside');
-        const tempDoc = document.cloneNode(true);
-        
-        elementsToRemove.forEach(el => {
-            const tempEl = tempDoc.querySelector(el.tagName.toLowerCase());
-            if (tempEl) tempEl.remove();
-        });
-
-        // Priority selectors for contract content (unchanged)
-        const contentSelectors = [
-            'main',
-            '.contract-content',
-            '.document-content',
-            '.legal-document',
-            'article',
-            '.content',
-            'body'
-        ];
-
-        let textContent = '';
-        
-        for (const selector of contentSelectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                textContent = element.innerText || element.textContent || '';
-                if (textContent.length > 500) break;
+    
+    init() {
+        // Listen for messages from popup
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'detectContract') {
+                this.detectContractContent().then(result => {
+                    sendResponse(result);
+                });
+                return true; // Keep message channel open
             }
-        }
-
-        // Fallback to body text (unchanged)
-        if (textContent.length < 100) {
-            textContent = document.body.innerText || document.body.textContent || '';
-        }
-
-        // Clean and normalize text (unchanged)
-        return textContent
-            .replace(/\s+/g, ' ')
-            .replace(/[\r\n]+/g, '\n')
-            .trim()
-            .substring(0, 10000); // Limit to 10k chars
-    }
-
-    detectContractContent(pageData) {
-        const text = pageData.text.toLowerCase();
-        const url = pageData.url.toLowerCase();
+        });
         
-        if (!text || text.length < 50) {
+        // Auto-detect on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.autoDetect());
+        } else {
+            this.autoDetect();
+        }
+    }
+    
+    async autoDetect() {
+        const result = await this.detectContractContent();
+        if (result.detected && result.confidence > this.confidenceThreshold) {
+            // Send detection result to popup
+            chrome.runtime.sendMessage({
+                action: 'contractDetected',
+                data: result
+            });
+        }
+    }
+    
+    async detectContractContent() {
+        try {
+            const pageText = this.extractPageText();
+            const confidence = this.calculateConfidence(pageText);
+            
+            return {
+                detected: confidence > this.confidenceThreshold,
+                confidence: Math.round(confidence * 100),
+                text: pageText.substring(0, 5000), // Limit text size
+                url: window.location.href,
+                title: document.title
+            };
+        } catch (error) {
+            console.error('Contract detection error:', error);
             return {
                 detected: false,
-                confidence: 0.0,
-                method: 'insufficient_content',
-                contract_text: pageData.text
+                confidence: 0,
+                text: '',
+                error: error.message
             };
         }
-
-        let score = 0;
-        let matches = 0;
-
-        // Original pattern matching (unchanged)
-        this.contractPatterns.forEach(pattern => {
-            const patternMatches = (text.match(pattern) || []).length;
-            matches += patternMatches;
-            score += patternMatches * 0.1;
-        });
-
-        // ENHANCEMENT #1: Enhanced legal pattern detection (Grammarly-inspired)
-        this.legalPatterns.forEach(pattern => {
-            const legalMatches = (text.match(pattern) || []).length;
-            matches += legalMatches;
-            score += legalMatches * 0.15; // Slightly higher weight for legal patterns
-        });
-
-        // Legal keyword density (unchanged)
-        const words = text.split(/\s+/);
-        const legalWordCount = words.filter(word => 
-            this.legalKeywords.includes(word.toLowerCase())
-        ).length;
-        
-        const legalDensity = legalWordCount / Math.max(words.length, 1);
-        score += legalDensity * 2;
-
-        // URL indicators (unchanged)
-        const urlIndicators = ['contract', 'agreement', 'terms', 'legal', '.pdf'];
-        const urlScore = urlIndicators.some(indicator => url.includes(indicator)) ? 0.3 : 0;
-        score += urlScore;
-
-        // Document structure indicators (unchanged)
-        const structureScore = this.analyzeDocumentStructure(text);
-        score += structureScore;
-
-        // Normalize confidence score
-        const confidence = Math.min(score, 1.0);
-        const detected = confidence > 0.25; // Slightly lower threshold due to enhanced detection
-
-        return {
-            detected: detected,
-            confidence: confidence,
-            method: detected ? 'enhanced_pattern_analysis' : 'no_patterns',
-            contract_text: pageData.text,
-            matches: matches,
-            legal_density: legalDensity,
-            url_score: urlScore
-        };
     }
-
-    analyzeDocumentStructure(text) {
-        let score = 0;
+    
+    extractPageText() {
+        // Remove script and style elements
+        const clonedDoc = document.cloneNode(true);
+        const scripts = clonedDoc.querySelectorAll('script, style, nav, header, footer');
+        scripts.forEach(el => el.remove());
         
-        // Check for numbered sections (unchanged)
-        if (/\b\d+\.\s/.test(text)) score += 0.1;
+        // Get main content areas
+        const contentSelectors = [
+            'main', 'article', '.content', '.document', '.contract',
+            '[class*="content"]', '[class*="document"]', '[class*="contract"]'
+        ];
         
-        // Check for article/section references (unchanged)
-        if (/\b(?:article|section|clause)\s+\d+/i.test(text)) score += 0.2;
-        
-        // Check for signature blocks (unchanged)
-        if (/\b(?:signature|signed|date|witness)\b/i.test(text)) score += 0.1;
-        
-        // Check for party definitions (unchanged)
-        if (/\b(?:party|parties|company|individual|entity)\b/i.test(text)) score += 0.1;
-        
-        return score;
-    }
-
-    async performAutoAnalysis(pageData) {
-        try {
-            const response = await fetch('http://localhost:5000/auto-analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(pageData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let text = '';
+        for (const selector of contentSelectors) {
+            const elements = clonedDoc.querySelectorAll(selector);
+            if (elements.length > 0) {
+                text = Array.from(elements).map(el => el.textContent).join(' ');
+                break;
             }
-
-            return await response.json();
-        } catch (error) {
-            return {
-                status: 'error',
-                error: `Auto-analysis failed: ${error.message}`
-            };
         }
+        
+        // Fallback to body text
+        if (!text.trim()) {
+            text = clonedDoc.body ? clonedDoc.body.textContent : '';
+        }
+        
+        return text.trim();
+    }
+    
+    calculateConfidence(text) {
+        if (!text || text.length < 100) return 0;
+        
+        let score = 0;
+        let totalMatches = 0;
+        
+        // Check legal patterns
+        this.legalPatterns.forEach(pattern => {
+            const matches = text.match(pattern) || [];
+            totalMatches += matches.length;
+        });
+        
+        // Base score from pattern matches
+        score = Math.min(totalMatches / 10, 0.8);
+        
+        // Bonus for document structure
+        if (text.includes('Article') || text.includes('Section')) score += 0.1;
+        if (text.includes('WHEREAS') || text.includes('NOW THEREFORE')) score += 0.15;
+        if (/\d+\.\s/.test(text)) score += 0.05; // Numbered sections
+        
+        // URL bonus
+        const url = window.location.href.toLowerCase();
+        if (/\b(contract|agreement|terms|legal|document)/.test(url)) score += 0.1;
+        if (url.includes('.pdf')) score += 0.2;
+        
+        return Math.min(score, 1.0);
     }
 }
 
-// Initialize detector (unchanged)
-const detector = new ContractDetector();
-
-// Message listener for browser extension communication (unchanged)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'getPageData') {
-        const pageData = detector.extractPageContent();
-        const detectionResult = detector.detectContractContent(pageData);
-        
-        sendResponse({
-            ...pageData,
-            ...detectionResult
-        });
-        
-    } else if (request.action === 'autoAnalyze') {
-        const pageData = detector.extractPageContent();
-        
-        detector.performAutoAnalysis(pageData)
-            .then(result => sendResponse(result))
-            .catch(error => sendResponse({
-                status: 'error',
-                error: error.message
-            }));
-        
-        return true; // Indicates async response
-    }
-});
-
-// Auto-detect on page load (unchanged)
-document.addEventListener('DOMContentLoaded', () => {
-    // Passive detection - no automatic analysis
-    const pageData = detector.extractPageContent();
-    const detection = detector.detectContractContent(pageData);
-    
-    if (detection.detected && detection.confidence > 0.7) {
-        // High confidence detection - could notify extension
-        console.log('High-confidence contract detected:', detection.confidence);
-    }
-});
+// Initialize detector
+new ContractDetector();
