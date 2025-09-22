@@ -36,23 +36,36 @@ steps:
         print('✅ Backend validation completed')
         "
 
-  # Step 2: Build and deploy to Cloud Run
+  # Step 2: Build and push container image from Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/genai-contract-pro:latest'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/genai-contract-pro:latest'
+
+  # Step 3: Deploy the built image to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
       - 'deploy'
-      - 'genai-contract-pro'
-      - '--source'
-      - '.'
+      - 'genai-project'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/genai-contract-pro:latest'
       - '--platform'
       - 'managed'
       - '--region'
-      - 'us-central1'
+      - 'europe-west4'
       - '--allow-unauthenticated'
       - '--memory'
-      - '4Gi'  # FIXED: Enough for all AI models
+      - '4Gi'
       - '--cpu'
-      - '2'    # Also increase CPU for better performance
+      - '2'
       - '--max-instances'
       - '10'
       - '--min-instances'
@@ -62,14 +75,14 @@ steps:
       - '--set-env-vars'
       - 'ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
 
-  # Step 3: Test deployed service
+  # Step 4: Test deployed service
   - name: 'gcr.io/cloud-builders/curl'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "Getting service URL..."
-        SERVICE_URL=$(gcloud run services describe genai-contract-pro --region=us-central1 --format="value(status.url)")
+        SERVICE_URL=$(gcloud run services describe genai-project --region=europe-west4 --format="value(status.url)")
         echo "Service URL: $SERVICE_URL"
         
         echo "Testing health endpoint..."
@@ -96,8 +109,8 @@ options:
 
 # Substitutions for environment variables
 substitutions:
-  _REGION: 'us-central1'
-  _SERVICE_NAME: 'genai-contract-pro'
+  _REGION: 'europe-west4'
+  _SERVICE_NAME: 'genai-project'
 
 # Build triggers (when this file is used with Cloud Build triggers)
 # Automatically triggered on:
